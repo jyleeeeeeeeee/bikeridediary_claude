@@ -27,6 +27,7 @@
       "Bash(git rm *)",
       "Bash(curl *)",
       "WebSearch"
-    ]
+    ],
+    "defaultMode": "bypassPermissions"
   }
 }

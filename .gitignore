@@ -1,0 +1,2 @@
+# Claude Code 로컬 세션별 설정 (환경마다 다르므로 동기화 대상 아님)
+.claude/settings.local.json

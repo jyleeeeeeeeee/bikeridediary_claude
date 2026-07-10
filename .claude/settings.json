@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd * && ./gradlew *)",
+      "Bash(cd * && .\\gradlew *)",
+      "Bash(cd * && ./gradlew.bat *)",
+      "Bash(cd * && flutter *)",
+      "Bash(cd * && docker *)",
+      "Bash(cd * && git *)",
+      "Bash(./gradlew *)",
+      "Bash(.\\gradlew *)",
+      "Bash(./gradlew.bat *)",
+      "Bash(.\\gradlew.bat *)",
+      "Bash(taskkill *)",
+      "Bash(tasklist *)",
+      "Bash(start *)",
+      "Bash(until *)",
+      "Bash(mkdir *)",
+      "Bash(WMIC *)",
+      "Bash(docker compose *)",
+      "Bash(docker inspect *)",
+      "Bash(docker info *)",
+      "Bash(flutter *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git rm *)",
+      "Bash(curl *)",
+      "WebSearch"
+    ]
+  }
+}

@@ -12,7 +12,7 @@
 - **퍼미션 확인 금지**: 파일 수정·Bash·프로세스 종료 등 모든 작업을 확인 없이 바로 실행. 위험 작업(force push 등)도 사용자가 요청했으면 바로. 사용자가 매번 확인받는 걸 매우 싫어함.
 - **앱은 가이드만 받지 않고 자율 완성형 구현**: Flutter/앱 코드는 강의식(Learn by Doing, TODO(human), 교육적 중단) 금지. 설명 요청이 아닌 한 바로 완성형으로. Insight는 사용자가 관심 가질 것만 간결히.
 - **역할 분담**: 앱(brd_app)은 Claude가 구현, 백엔드(brd_be)는 Claude가 **가이드만** 주고 사용자가 직접 구현. (단 사용자가 명시적으로 "반영/수정해"라고 하면 백엔드도 직접 수정)
-- **"커밋해" = 두 프로젝트 모두**: brd_be + brd_app 양쪽 git status 확인 후 변경된 모든 repo 커밋.
+- **"커밋해/푸시해" = 세 프로젝트 모두**: brd_claude + brd_be + brd_app 세 repo 모두 git status 확인 후 변경된 곳 커밋+푸시. 특정 프로젝트만 지목하면 그 프로젝트만.
 - **엔티티 클래스명**: 모든 `@Entity`는 `Entity` suffix (UserEntity, BikeEntity…). 참조 파일(Repository/Service/Controller/DTO)도 함께 갱신.
 - **엔티티 필드 주석**: 모든 필드에 한글 주석으로 설명. 기술 상세는 괄호로.
 - **캐시 무효화**: CRUD 구현 시 관련 Riverpod provider 캐시 반드시 invalidate (목록/상세/연관 통계 모두). 새로고침 화면은 invalidate 후 재요청 + `AlwaysScrollableScrollPhysics`(짧은 화면도 당김 가능).

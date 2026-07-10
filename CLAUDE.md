@@ -376,8 +376,8 @@ com.bikeridediary
     - 새로고침 전 화면 캐시 invalidate + AlwaysScrollableScrollPhysics(짧은 화면도 당김 가능)
     - 보안 메모: application-local.yml의 opinet/api-ninjas 키가 이전 커밋부터 추적 중 → 키 회전 + 환경변수화 권장
 
-26. 뱅킹각 측정 기능 바라다 통합 (2026-07-03, brd_app 커밋 97cf952 + a1825a4)
-    - CheckBanking 앱의 뱅킹 기능을 brd_app/lib/features/banking/에 이식 (10개 신규 파일)
+26. 뱅킹각 측정 기능 추가 (2026-07-03, brd_app 커밋 97cf952 + a1825a4)
+    - brd_app/lib/features/banking/ 신규 도메인 (10개 파일)
     - 센서 스트림/저역 필터/캘리브레이션, Cupertino 다이얼로그(확인=왼쪽, 취소=오른쪽, 다시 안 보기)
     - wakelock을 recording 상태 종속으로 관리 → 화면 이동해도 기록 유지 (앱 내에 있는 한)
     - shell 밖 전체 화면 라우트(/banking, /banking/sessions, /banking/sessions/:id)

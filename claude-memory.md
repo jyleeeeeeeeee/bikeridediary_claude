@@ -2,7 +2,7 @@
 
 > 이 파일은 `CLAUDE.md`에서 `@claude-memory.md`로 import되어 세션 시작 시 자동 로드됩니다.
 > Claude 홈(`~/.claude`)의 메모리는 git 공유가 안 되므로, 정본은 이 파일에 둡니다.
-> 다른 환경에서도 git pull 하면 그대로 읽힙니다. 최종 갱신: 2026-06-30.
+> 다른 환경에서도 git pull 하면 그대로 읽힙니다. 최종 갱신: 2026-07-13.
 
 ---
 
@@ -109,12 +109,41 @@
 - place 도메인 (features/place): 큐레이션 POI (명소/카페/센터). 유저별 데이터 아니라 로컬 우선 아키텍처 대상 아님 — 순수 서버 조회.
 - UI: 카테고리 필터 배지 + 마커 + 하단 상세 시트
 - 백엔드 스펙: docs/place-api.md
-- 사용자 초안 스키마: place(place_id, place_name, place_author, star_point, wished_count) + place_categories(category_code, category_name)
-- 미완: 좌표(lat/lng), category_code FK, address, description, photo_url, deleted_at 등 필수 컬럼 보완 필요
 - 리뷰/후기: 카카오/네이버 리뷰 API 없음. 크롤링 법적 리스크. **자체 리뷰 시스템 + AI 요약** 방향 검토, 결정 유보
 - 딥링크 방향: 상세 시트에 카카오맵/네이버 지도 딥링크 버튼 (url_launcher), 후속 작업
 - 주유소 카테고리: 지도 UI 토글엔 있으나 데이터 소스 미연결. 기존 station API(오피넷)와 통합 필요
 - 확장 메뉴 3버튼 (main_shell): 좌 코스탐색(/courses) / 중 내 바이크(navigationShell.goBranch(2)) / 우 뱅킹각(/banking)
+
+### Place DDL 최종 결정 (2026-07-13, 아직 schema.sql 반영 전)
+- 인덱스 3개 확정:
+  - `idx_places_category_deleted_at (category_code, deleted_at)`
+  - `idx_places_lat_lng (latitude, longitude) WHERE deleted_at IS NULL` (partial)
+  - `idx_place_wishes_user (user_id)` (복합 PK가 (place_id, user_id)라 user 단독 조회용 별도 필요)
+- FK ON DELETE 정책:
+  - `places.user_id → users(id) ON DELETE SET NULL` (유저 탈퇴 시 큐레이션 장소는 author만 null 처리)
+  - `places.category_code → place_categories(category_code) ON DELETE RESTRICT` (실수로 카테고리 지우면 places 전체 참조 깨짐 방지)
+  - `place_wishes.place_id/user_id ON DELETE CASCADE`
+- 좌표 타입: `latitude NUMERIC(9,7)`, `longitude NUMERIC(10,7)` (카카오맵 API가 소수 7자리 반환, 약 1.1cm 해상도).
+  - **엔티티 반영 필요**: PlaceEntity의 `double latitude/longitude` → `BigDecimal` + `@Column(precision=..., scale=7)`, create/update 팩토리 파라미터도 BigDecimal로.
+- PostGIS 도입 여부는 **나중에 결정** (코스 도메인 시작 시점과 맞추면 마이그레이션 1회로 끝날 것)
+- wishedCount 정합성 (배치 recount vs 트리거)는 트래픽 붙은 뒤 대응.
+
+### Place 시드 데이터 수집 (2026-07-13, DB 반영 대기)
+- 방법: **카카오맵 내부 JSONP 엔드포인트** `https://search.map.kakao.com/mapsearch/map.daum?callback=cb&q=<keyword>&msFlag=A&sort=0&page=<n>` 사용
+  - **비공식 API — 카카오 약관 위반 소지, 스펙 변경 리스크**. Referer=map.kakao.com, User-Agent 필수. JSONP wrapper `/**/cb(...)` 제거 후 파싱.
+  - 페이지당 15건, `page_count` 필드 = 전체 건수. `place[].lat`/`place[].lon` = WGS84 (x/y는 TM 좌표계라 사용 금지). `confirmid`로 dedupe.
+  - 공식 대안: `dapi.kakao.com/v2/local/search/keyword` (최대 45건 상한이라 커버리지 좁음)
+- 결과 파일 (git 미추적, `brd_claude/_kakao_*.sql`):
+  - `_kakao_bike_cafes.sql` — **통합 159건** INSERT (place_name, category_code='CAFE', latitude, longitude만)
+  - `_kakao_rider_delta.sql` — 라이더 카페 신규 17건만
+- 키워드별 수집량:
+  - "바이크 카페": 142건 (10페이지)
+  - "라이더 카페": 32건 raw → 신규 17건 (15건은 바이크 카페와 중복)
+- **DB 반영 전 필수 작업**:
+  1. Place DDL 반영 (스키마 + PlaceEntity 좌표 타입 BigDecimal 전환)
+  2. `place_categories`에 'CAFE' 먼저 seed (FK 위반 방지)
+  3. **수동 큐레이션** — 카카오 리뷰 태그 기반 매칭이라 오탐 섞임 (예: 빽다방, 코코부코 등 라이더 무관 카페 몇 개). 특히 라이더 delta 17건 중 애매한 5개 검토.
+- PowerShell 재현 스크립트 요지: `Invoke-WebRequest` + `[System.Text.Encoding]::UTF8.GetString($r.RawContentStream.ToArray())` + `text.Substring(7, len-9)` + `System.Web.Script.Serialization.JavaScriptSerializer(MaxJsonLength=104857600)`. PS 5.1 기본 `ConvertFrom-Json`은 큰 페이로드에서 "Invalid JSON primitive" 오류 자주 남 — JavaScriptSerializer 사용 권장.
 
 **커밋 원칙**: 도메인별 세부 커밋.
 
@@ -133,5 +162,5 @@
 ## 레퍼런스
 
 - **API-Ninjas 모터사이클 API**: endpoint `https://api.api-ninjas.com/v1/motorcycles`, 키는 application-local.yml `api-ninjas.api-key`. offset 페이징(30개씩), free 1req/sec. Royal Enfield 데이터 없음, CFMoto는 "CF Moto"로 요청. (현재는 DB 기반 조회로 전환됨)
-- **백엔드 시크릿 주의**: `brd_be/src/main/resources/application-local.yml`이 git 추적 중이고 `opinet.api-key`, `api-ninjas.api-key`가 실제 키. 이전 커밋부터 원격에 올라가 있음. public이면 키 회전 + 환경변수 분리 권장. (원칙: API 키는 git에 올리지 않음)
+- **백엔드 시크릿 (2026-07-14 env var 이관 완료)**: `application-local.yml`의 openweather/opinet/api-ninjas 키를 `${VAR:dummy}` 형태로 이관. 로컬 실행 시 IntelliJ Run Config 또는 shell env에 `OPENWEATHER_API_KEY`, `OPINET_API_KEY`, `API_NINJAS_API_KEY` 설정 필요. 이전 커밋 히스토리엔 실제 키 남아있으나 사용자 판단으로 회전 없이 진행. dev/stg/prd yml은 이전부터 이미 env var 사용 중. (원칙: 새 API 키는 git 커밋 금지)
 - 백엔드 원격 이전: `bikeridediary` → `bikeridediary_be.git`. `git remote set-url` 갱신 권장.

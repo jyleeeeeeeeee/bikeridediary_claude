@@ -163,4 +163,4 @@
 
 - **API-Ninjas 모터사이클 API**: endpoint `https://api.api-ninjas.com/v1/motorcycles`, 키는 application-local.yml `api-ninjas.api-key`. offset 페이징(30개씩), free 1req/sec. Royal Enfield 데이터 없음, CFMoto는 "CF Moto"로 요청. (현재는 DB 기반 조회로 전환됨)
 - **백엔드 시크릿 (2026-07-14 env var 이관 완료)**: `application-local.yml`의 openweather/opinet/api-ninjas 키를 `${VAR:dummy}` 형태로 이관. 로컬 실행 시 IntelliJ Run Config 또는 shell env에 `OPENWEATHER_API_KEY`, `OPINET_API_KEY`, `API_NINJAS_API_KEY` 설정 필요. 이전 커밋 히스토리엔 실제 키 남아있으나 사용자 판단으로 회전 없이 진행. dev/stg/prd yml은 이전부터 이미 env var 사용 중. (원칙: 새 API 키는 git 커밋 금지)
-- 백엔드 원격 이전: `bikeridediary` → `bikeridediary_be.git`. `git remote set-url` 갱신 권장.
+- 백엔드 원격: `https://github.com/jyleeeeeeeeee/bikeridediary_be.git` (2026-07-14 `bikeridediary` → `bikeridediary_be` 갱신 완료)

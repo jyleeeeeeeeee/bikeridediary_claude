@@ -16,6 +16,17 @@
 - **엔티티 클래스명**: 모든 `@Entity`는 `Entity` suffix (UserEntity, BikeEntity…). 참조 파일(Repository/Service/Controller/DTO)도 함께 갱신.
 - **엔티티 필드 주석**: 모든 필드에 한글 주석으로 설명. 기술 상세는 괄호로.
 - **캐시 무효화**: CRUD 구현 시 관련 Riverpod provider 캐시 반드시 invalidate (목록/상세/연관 통계 모두). 새로고침 화면은 invalidate 후 재요청 + `AlwaysScrollableScrollPhysics`(짧은 화면도 당김 가능).
+- **BigDecimal 엔티티 필드 리뷰 시 precision/scale 필수 확인 (2026-07-14, 실수 재발 방지)**:
+  - JPA `BigDecimal` 필드에 `@Column(precision=X, scale=Y)`가 없으면 Hibernate 기본값 `NUMERIC(19,2)`가 적용됨. 컬럼 자체를 스키마로 `numeric(9,7)`로 만들었어도 JDBC 바인딩 단계에서 스케일 2로 반올림돼 저장됨.
+  - 실제 사례: `PlaceEntity.latitude/longitude`를 `double → BigDecimal`로 바꿨을 때 precision/scale 안 붙여서 소수점 2자리로 잘려 저장됨. 좌표 데이터 손실 발생.
+  - **리뷰 체크리스트**: `double → BigDecimal` 변경 diff, 새 BigDecimal 필드 추가 diff 볼 때는 항상 `precision/scale` 명시 여부 먼저 확인. 없으면 즉시 지적.
+- **시스템 하단바(Android gesture nav / iOS home indicator) 오버랩 방지 (2026-07-14 확정)**:
+  - **shell 안 화면** (Scaffold 안의 branch: home/bike/maintenance/fueling/settings): shell(`main_shell.dart`)이 bottom nav를 `SafeArea(top: false)`로 이미 처리 → 별도 조치 불필요.
+  - **shell 밖 화면** (banking/, courses/, place coordinate edit, session_*, 그 외 `context.push`로 여는 전체 화면): 자체 Scaffold라 시스템 nav에 직접 노출됨. 아래 패턴 필수:
+    - 고정 배치 위젯 (`Positioned(bottom:)`, 커스텀 하단 액션바): `SafeArea(top: false, minimum: EdgeInsets.only(bottom: X))`로 감쌈. 예: `place_coordinate_edit_screen.dart`의 저장 버튼.
+    - 스크롤 리스트(`ListView`/`CustomScrollView`) bottom padding: `EdgeInsets.fromLTRB(L, T, R, base + MediaQuery.of(context).viewPadding.bottom)`. 예: `session_list_screen.dart`.
+    - 전체 body를 `SafeArea`로 감싸도 되지만 배경 그래디언트가 있으면 시각 손실 있으니 지점별 감쌈 권장.
+  - `showModalBottomSheet` 내부: `SafeArea` 래핑 필수 (기본 `useSafeArea: false`).
 
 ---
 
@@ -114,7 +125,7 @@
 - 주유소 카테고리: 지도 UI 토글엔 있으나 데이터 소스 미연결. 기존 station API(오피넷)와 통합 필요
 - 확장 메뉴 3버튼 (main_shell): 좌 코스탐색(/courses) / 중 내 바이크(navigationShell.goBranch(2)) / 우 뱅킹각(/banking)
 
-### Place DDL 최종 결정 (2026-07-13, 아직 schema.sql 반영 전)
+### Place DDL 최종 결정 (2026-07-13, 엔티티 반영 완료 / schema.sql 반영 여부 미확인 2026-07-15)
 - 인덱스 3개 확정:
   - `idx_places_category_deleted_at (category_code, deleted_at)`
   - `idx_places_lat_lng (latitude, longitude) WHERE deleted_at IS NULL` (partial)
@@ -159,8 +170,28 @@
 
 ---
 
+## 미해결 사항 (앱 완성 후 리마인드 필요)
+
+> 사용자가 "앱 기능 다 됐어", "출시 준비", "배포 전 체크" 등 완성/오픈 관련 언급을 하면 아래 항목을 **먼저 상기시킬 것**.
+
+### 보안 — Place 좌표 수정 엔드포인트 무인증 (2026-07-14 기록)
+- `PATCH /api/v1/places/{id}` — `SecurityConfig.PERMIT_ALL_ENDPOINTS`의 `/api/v1/places/**` 뒤에 있어 **누구나 어떤 place의 좌표든 수정 가능**.
+- 대응 방향:
+  1. `/api/v1/places/**`를 `PERMIT_ALL_ENDPOINTS`에서 제거, `GET_PERMIT_ALL_ENDPOINTS`에 추가 → GET만 열고 PATCH는 authenticated
+  2. 관리자 role 도입 시 `@PreAuthorize("hasRole('ADMIN')")` 적용, 관리자 UI 별도 분리
+- 앱 사이드: 지금은 게스트도 좌표 보정 UI 접근 가능 → 인증 걸리면 로그인 유도 다이얼로그 추가 필요
+
+---
+
 ## 레퍼런스
 
 - **API-Ninjas 모터사이클 API**: endpoint `https://api.api-ninjas.com/v1/motorcycles`, 키는 application-local.yml `api-ninjas.api-key`. offset 페이징(30개씩), free 1req/sec. Royal Enfield 데이터 없음, CFMoto는 "CF Moto"로 요청. (현재는 DB 기반 조회로 전환됨)
 - **백엔드 시크릿 (2026-07-14 env var 이관 완료)**: `application-local.yml`의 openweather/opinet/api-ninjas 키를 `${VAR:dummy}` 형태로 이관. 로컬 실행 시 IntelliJ Run Config 또는 shell env에 `OPENWEATHER_API_KEY`, `OPINET_API_KEY`, `API_NINJAS_API_KEY` 설정 필요. 이전 커밋 히스토리엔 실제 키 남아있으나 사용자 판단으로 회전 없이 진행. dev/stg/prd yml은 이전부터 이미 env var 사용 중. (원칙: 새 API 키는 git 커밋 금지)
 - 백엔드 원격: `https://github.com/jyleeeeeeeeee/bikeridediary_be.git` (2026-07-14 `bikeridediary` → `bikeridediary_be` 갱신 완료)
+- **Naver 지역검색 API** (2026-07-15 통합 완료): `https://openapi.naver.com/v1/search/local.json`
+  - 헤더 `X-Naver-Client-Id`, `X-Naver-Client-Secret` (developers.naver.com 계정 — NCP Directions/Geocoding 계정과 별개)
+  - `display` 최대 5 (지역검색 특유 제한)
+  - `mapx`/`mapy` = WGS84 × 10⁷ 문자열 (예: "1281076460" = 128.1076460). `.divide(10_000_000, 7, HALF_UP)`로 BigDecimal 변환 → PlaceEntity `NUMERIC(9,7)/(10,7)` 스케일 일치. **KATEC 아님, CoordinateConverter 불필요**
+  - `title`에 `<b>...</b>` 검색어 하이라이트 태그 있음 — 정규식 `<[^>]+>` 제거 필요
+  - 무료 25,000회/일. 시크릿은 env var `NAVER_SEARCH_CLIENT_ID`/`NAVER_SEARCH_CLIENT_SECRET` (application-local.yml)
+- **백엔드 @ConfigurationProperties 이관 완료 (2026-07-15)**: 모든 외부 API + 내부 설정 `@Value` 제거. `@ConfigurationPropertiesScan` 활성화 상태라 record에 `@ConfigurationProperties(prefix = "...")` 붙이고 소비 클래스와 co-locate하면 자동 등록. 신규 API 추가 시 같은 패턴.

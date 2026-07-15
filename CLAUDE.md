@@ -432,14 +432,44 @@ com.bikeridediary
       - PlaceCategory enum, PlaceEntity 필드, 시드 데이터 예시
       - GET /api/v1/places?category=X 엔드포인트, permitAll 안내
 
+30. 코스탐색 필터 재설계 + Naver 지역검색 통합 (2026-07-15)
+    - 앱 (brd_app):
+      - CourseMapScreen 필터 다중 선택: `Set<PlaceCategory> activeCategories` + `bool wishActive`. 전체 = 모두 활성일 때만 활성 표시, 전체 chip 클릭 = 토글(모두 on/off)
+      - 필터 UI: 접기/펼치기 chip 오른쪽에 검색창 배치, 펼침 시 카테고리 세로 나열, 기본 펼침
+      - 마커 관리 최적화: clear+rebuild → visibility toggle. `_syncMarkers`(초기 1회 + place CRUD 후 delta) + `_applyVisibility`(필터 변경 시 O(n) setIsVisible)
+      - 검색 in-memory 필터로 전환: allPlacesProvider 캐시 부분 일치 검색. 서버 왕복/디바운스/로딩 스피너 전부 제거, 즉시 반응
+      - 검색 선택 시 해당 카테고리 자동 활성화. 사용자가 카테고리 필터 조작하면 selectedSearchResult 자동 해제
+      - PlaceCategory에 OTHER('OTHER', '기타', '📌') 추가
+      - Naver 지역검색 흐름 구현: PlaceCandidate 모델, PlaceRepository.searchExternal, 신규 PlaceSearchAddScreen (검색→선택→크로스헤어 좌표 보정→카테고리 확정→저장)
+      - Naver 카테고리 문자열 → 앱 카테고리 자동 추정 (카페/식당/센터/명소 키워드 매칭, 나머지 OTHER)
+      - PlaceCreateScreen 삭제(교체), 미사용 _mapCameraCenterProvider 정리
+    - 백엔드 (brd_be):
+      - 엔드포인트: `GET /api/v1/places/search-external?query=`, `POST /api/v1/places`(addNewPlace)
+      - infra/naver/search/: NaverSearchClient + NaverLocalSearchResponse/Item + NaverSearchProperties. `X-Naver-Client-Id/Secret` 헤더, UriComponentsBuilder로 UTF-8 인코딩
+      - PlaceService.searchExternal: HTML 태그 제거(<b>...</b>) + WGS84×10⁷ 좌표 스케일링(BigDecimal /1e7, scale=7). CoordinateConverter 미사용
+      - Naver 지역검색 응답 좌표 = WGS84 × 10⁷ 확인 (curl 검증). display 최대 5
+      - RestTemplate: postForObject → exchange(..., HttpMethod.POST, ...) 통일 (KakaoProvider, NaverProvider)
+      - **전면 @ConfigurationProperties 이관** (10개 record, 소비 클래스와 co-location):
+        - global/config: FileStorageProperties, AwsProperties(S3 nested)
+        - global/auth/jwt: JwtProperties
+        - global/auth/oauth2: GoogleOAuth2Properties, NaverOAuth2Properties, AppleProperties
+        - infra/naver/search: NaverSearchProperties
+        - domain/weather/service: OpenWeatherProperties
+        - domain/station/service: OpinetProperties
+        - domain/bikemodel/service: ApiNinjasProperties
+      - `@ConfigurationPropertiesScan` 활성화 (BikeRideDiaryApplication) → 새 record 자동 등록
+      - `cloud.aws.*` 블록 제거 → `aws.*` 통합 (pre-existing 버그: Java가 cloud.aws.s3.bucket=your-bucket-name 기본값만 읽어 프로필별 aws.s3.bucket이 무시되던 문제 해결)
+      - MaintenanceService의 참조 안 되던 file.upload-dir/base-url 죽은 필드 제거
+
 ### 다음 단계
 
-- **place 도메인 백엔드 구현** (docs/place-api.md 참고, 사용자가 place/place_categories 스키마 초안 만듦 — 좌표/카테고리 FK 등 필수 필드 보완 필요)
 - **Phase 3 클라이언트 도메인 이전 진행**: 주유(Fueling) → 정비(Maintenance) 순, 백엔드 upsert 필요
-- **주유소 지도 통합**: place UI 토글의 주유 카테고리를 기존 station API에 연결
+- **주유소 지도 통합**: place UI 토글의 주유 카테고리를 기존 station API에 연결 (또는 place로 흡수)
 - **카카오맵/네이버 지도 딥링크 버튼**: 하단 시트에 url_launcher로 추가 (TODO 표시됨)
+- **place_categories 시드 확인**: schema.sql/data.sql에 없음 — DB에 직접 seed된 상태로 추정. OTHER row가 실제 존재하는지 확인 필요 (없으면 앱 '기타' 저장 시 FK 위반)
+- **SecurityConfig의 /api/v1/places/** 정리**: 지금 permitAll이라 POST/PATCH도 무인증. 인증 정리를 나중에 다른 엔드포인트들과 일괄 처리 예정
 - Flutter 앱 실기기 오프라인 게스트 시나리오 검증 (비행기 모드 → 가입없이 시작하기 → 뱅킹)
-- 라이딩 코스(Course) 도메인 (GPX 기록/업로드)
+- 라이딩 코스(Course) 도메인 (GPX 기록/업로드, Naver Directions 15 활용)
 
 ---
 

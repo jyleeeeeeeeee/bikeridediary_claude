@@ -1,0 +1,783 @@
+/* ================================================================
+   BRD 라이딩 코스 목업 공통 스타일
+   디자인 시스템: iOS 블루 (#007AFF)
+   최종 갱신: 2026-07-16
+   ================================================================ */
+
+/* ---- 리셋 / 기본 ---- */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+:root {
+  /* Color tokens */
+  --color-primary:       #007AFF;
+  --color-primary-dark:  #0051D5;
+  --color-accent-yellow: #FFCC00;
+  --color-accent-gray:   #C7C7CC;
+  --color-danger:        #FF3B30;
+  --color-success:       #34C759;
+  --color-bg:            #F2F2F7;
+  --color-card:          #FFFFFF;
+  --color-text-primary:  #1C1C1E;
+  --color-text-secondary:#8E8E93;
+  --color-divider:       #E5E5EA;
+  --color-heart:         #FF6B6B;
+
+  /* Spacing */
+  --sp-xs:  4px;
+  --sp-sm:  8px;
+  --sp-md:  12px;
+  --sp-lg:  16px;
+  --sp-xl:  20px;
+  --sp-2xl: 24px;
+
+  /* Radius */
+  --r-sm:   6px;
+  --r-md:   10px;
+  --r-lg:   12px;
+  --r-full: 9999px;
+
+  /* Shadow */
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.08);
+  --shadow-fab:  0 4px 14px rgba(0,122,255,0.40);
+  --shadow-sub:  0 4px 10px rgba(0,0,0,0.15);
+}
+
+html, body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif;
+  background: #E8E8EE;
+  color: var(--color-text-primary);
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+/* ---- 목업 컨테이너 (폰 프레임) ---- */
+.phone-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 24px 16px 40px;
+  min-height: 100vh;
+}
+
+.phone {
+  position: relative;
+  width: 100%;
+  max-width: 414px;
+  min-height: 812px;
+  background: var(--color-bg);
+  border-radius: 44px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.28), 0 0 0 2px #333;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 노치 바 */
+.phone::before {
+  content: '';
+  display: block;
+  height: 44px;
+  background: #000;
+  flex-shrink: 0;
+}
+
+/* 하단 홈 인디케이터 */
+.phone::after {
+  content: '';
+  display: block;
+  height: 34px;
+  background: var(--color-card);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.phone-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ---- AppBar ---- */
+.appbar {
+  background: var(--color-card);
+  border-bottom: 1px solid var(--color-divider);
+  padding: 0 16px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.appbar-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  flex: 1;
+}
+
+.appbar-back {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--color-primary);
+  font-size: 20px;
+  flex-shrink: 0;
+  text-decoration: none;
+}
+
+.appbar-action {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--color-primary);
+  font-size: 18px;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  border-radius: var(--r-full);
+}
+
+.appbar-action:hover {
+  background: rgba(0,122,255,0.08);
+}
+
+/* ---- 탭바 (내 코스 / 탐색) ---- */
+.tab-bar {
+  background: var(--color-card);
+  border-bottom: 1px solid var(--color-divider);
+  display: flex;
+  flex-shrink: 0;
+}
+
+.tab-item {
+  flex: 1;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  text-decoration: none;
+}
+
+.tab-item.active {
+  color: var(--color-primary);
+  font-weight: 700;
+  border-bottom-color: var(--color-primary);
+}
+
+.tab-item:hover:not(.active) {
+  color: var(--color-text-primary);
+  background: rgba(0,0,0,0.03);
+}
+
+/* ---- 스크롤 컨텐츠 영역 ---- */
+.scroll-content {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--color-bg);
+  padding: var(--sp-md);
+}
+
+/* 스크롤바 숨김 */
+.scroll-content::-webkit-scrollbar { display: none; }
+
+/* ---- 검색창 ---- */
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--color-card);
+  border-radius: var(--r-lg);
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow-card);
+}
+
+.search-icon {
+  color: var(--color-text-secondary);
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.search-input {
+  border: none;
+  outline: none;
+  font-size: 15px;
+  color: var(--color-text-secondary);
+  background: transparent;
+  flex: 1;
+  cursor: default;
+}
+
+/* ---- 코스 카드 (리스트 아이템) ---- */
+.course-card {
+  background: var(--color-card);
+  border-radius: var(--r-lg);
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+  transition: box-shadow 0.15s;
+}
+
+.course-card:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.13);
+}
+
+.course-card:active {
+  transform: scale(0.99);
+}
+
+.course-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.course-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
+}
+
+.course-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.course-meta-dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+/* ---- 소유 마커 (원 안 아이콘) ---- */
+.owner-badge {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.owner-badge.mine {
+  background: rgba(255,107,107,0.12);
+}
+
+.owner-badge.bookmarked {
+  background: rgba(255,204,0,0.15);
+}
+
+/* ---- 즐겨찾기 별 버튼 ---- */
+.star-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  cursor: pointer;
+  border: none;
+  background: none;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: transform 0.12s;
+}
+
+.star-btn:hover {
+  transform: scale(1.15);
+  background: rgba(255,204,0,0.1);
+}
+
+.star-btn .star-on  { color: var(--color-accent-yellow); }
+.star-btn .star-off { color: var(--color-accent-gray); }
+
+/* ---- FAB ---- */
+.fab {
+  position: absolute;
+  right: 20px;
+  bottom: 20px;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-fab);
+  cursor: pointer;
+  border: none;
+  z-index: 20;
+  transition: background 0.15s, transform 0.12s;
+}
+
+.fab:hover {
+  background: var(--color-primary-dark);
+  transform: scale(1.06);
+}
+
+/* ---- 하단 탭바 (쉘) ---- */
+.bottom-nav {
+  background: var(--color-card);
+  border-top: 2px solid rgba(0,122,255,0.4);
+  height: 60px;
+  display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+  position: relative;
+  box-shadow: 0 -2px 12px rgba(0,0,0,0.08);
+}
+
+.nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  cursor: pointer;
+  text-decoration: none;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+}
+
+.nav-item.active {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.nav-item span.nav-icon {
+  font-size: 22px;
+  line-height: 1;
+}
+
+/* 바이크 원형 버튼 (쉘 가운데) */
+.nav-bike-slot {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.bike-circle {
+  position: absolute;
+  bottom: 6px;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid rgba(0,122,255,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0,122,255,0.25);
+  z-index: 5;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.bike-circle.expanded {
+  background: var(--color-primary);
+  border-color: transparent;
+  box-shadow: 0 4px 14px rgba(0,122,255,0.45);
+  font-size: 34px;
+  color: #fff;
+}
+
+/* ---- 확장 메뉴 오버레이 ---- */
+.expand-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.25);
+  z-index: 4;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.expand-menu {
+  position: relative;
+  width: 300px;
+  height: 160px;
+  margin-bottom: 90px;
+}
+
+.sub-fab {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.sub-fab-circle {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  box-shadow: var(--shadow-sub);
+  transition: transform 0.12s;
+}
+
+.sub-fab:hover .sub-fab-circle {
+  transform: scale(1.08);
+}
+
+.sub-fab-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(0,0,0,0.60);
+  padding: 2px 8px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+
+/* 4버튼 부채꼴 위치 */
+.sub-fab.explore     { left: 10px;  bottom: 30px; }
+.sub-fab.my-bike     { left: 75px;  bottom: 90px; }
+.sub-fab.banking     { left: 165px; bottom: 90px; }
+.sub-fab.riding      { left: 228px; bottom: 30px; }
+
+/* ---- 코스 상세 ---- */
+.map-placeholder {
+  width: 100%;
+  height: 50%;
+  background: #D8E8D0;
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.map-bg-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: #6B8E6B;
+  font-size: 13px;
+  font-weight: 500;
+  pointer-events: none;
+}
+
+/* 지도 격자 패턴 */
+.map-placeholder::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(120,160,120,0.2) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(120,160,120,0.2) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* Polyline SVG (코스 라인) */
+.map-placeholder svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* 마커 핀 */
+.map-marker {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg) translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+
+.map-marker::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  background: #fff;
+  border-radius: 50%;
+  transform: rotate(45deg);
+}
+
+.map-marker.start       { background: #34C759; left: 22%; top: 58%; }
+.map-marker.waypoint1   { background: #007AFF; left: 40%; top: 42%; }
+.map-marker.waypoint2   { background: #007AFF; left: 60%; top: 35%; }
+.map-marker.destination { background: #FF3B30; left: 78%; top: 48%; }
+
+/* 상세 정보 패널 */
+.detail-panel {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--color-card);
+  padding: 16px 16px 24px;
+}
+
+.detail-panel::-webkit-scrollbar { display: none; }
+
+.detail-course-name {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin-bottom: 6px;
+}
+
+.detail-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  margin-bottom: 16px;
+}
+
+.detail-chip {
+  background: rgba(0,122,255,0.1);
+  color: var(--color-primary);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: var(--r-full);
+}
+
+.divider {
+  height: 1px;
+  background: var(--color-divider);
+  margin: 12px 0;
+}
+
+/* Waypoint 리스트 */
+.waypoint-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.waypoint-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  position: relative;
+}
+
+/* 연결선 */
+.waypoint-item:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: 38px;
+  width: 2px;
+  height: calc(100% - 14px);
+  background: var(--color-divider);
+  z-index: 0;
+}
+
+.wp-dot {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+  z-index: 1;
+  position: relative;
+}
+
+.wp-dot.start       { background: #34C759; }
+.wp-dot.waypoint    { background: var(--color-primary); }
+.wp-dot.destination { background: #FF3B30; }
+
+.wp-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.wp-label {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+  margin-bottom: 1px;
+}
+
+.wp-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---- 빈 상태 ---- */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  gap: 12px;
+  text-align: center;
+}
+
+.empty-icon {
+  font-size: 56px;
+  opacity: 0.4;
+}
+
+.empty-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.empty-desc {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+/* ---- 토스트 알림 ---- */
+.toast {
+  position: fixed;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(28,28,30,0.88);
+  color: #fff;
+  font-size: 14px;
+  padding: 10px 20px;
+  border-radius: var(--r-full);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+  white-space: nowrap;
+  z-index: 9999;
+}
+
+.toast.show {
+  opacity: 1;
+}
+
+/* ---- 프로토타입 네비게이션 링크 (화면 하단) ---- */
+.proto-nav {
+  background: #E0E0E8;
+  border-top: 1px dashed #AAAACC;
+  padding: 8px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: #555;
+  flex-shrink: 0;
+}
+
+.proto-nav a {
+  color: var(--color-primary);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.proto-nav a:hover {
+  text-decoration: underline;
+}
+
+.proto-screen-label {
+  font-weight: 600;
+  color: #333;
+}
+
+/* ---- 드롭다운 메뉴 ---- */
+.dropdown-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  pointer-events: none;
+}
+
+.dropdown-menu {
+  position: absolute;
+  right: 12px;
+  top: 56px;
+  background: var(--color-card);
+  border-radius: var(--r-lg);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.18);
+  overflow: hidden;
+  min-width: 160px;
+  pointer-events: all;
+}
+
+.dropdown-item {
+  padding: 13px 18px;
+  font-size: 15px;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.dropdown-item:hover {
+  background: var(--color-bg);
+}
+
+.dropdown-item.danger {
+  color: var(--color-danger);
+}

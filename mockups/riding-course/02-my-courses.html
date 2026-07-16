@@ -1,0 +1,143 @@
+<!--
+  화면명: 라이딩 코스 홈 — 내 코스 탭 (기본)
+  요구사항: #3 AppBar "라이딩 코스" + #4 헤더, #5 body, #6 하단 탭바(내 코스/탐색),
+            #7 소유 마커(하트=내 코스, 별=즐겨찾기한 남의 코스), #9 리스트 아이템 구성, #11 아이템 클릭 → 상세, #17 병합(내 코스 탭)
+-->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BRD 목업 — 내 코스 탭</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .section-header {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--color-text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 4px 2px 8px;
+    }
+  </style>
+</head>
+<body>
+<div class="phone-wrap">
+  <div class="phone">
+    <div class="phone-body">
+
+      <!-- AppBar -->
+      <div class="appbar">
+        <a href="01-home-expanded-menu.html" class="appbar-back">‹</a>
+        <div class="appbar-title">라이딩 코스</div>
+      </div>
+
+      <!-- 탭바: 내 코스 활성 -->
+      <div class="tab-bar">
+        <a href="02-my-courses.html" class="tab-item active">내 코스</a>
+        <a href="03-explore.html" class="tab-item">탐색</a>
+      </div>
+
+      <!-- 리스트 컨텐츠 -->
+      <div class="scroll-content" style="position:relative;">
+
+        <!-- 내가 만든 코스 섹션 -->
+        <div class="section-header">내가 만든 코스 · 2</div>
+
+        <!-- 코스 아이템: 내 코스 (하트) -->
+        <a href="04-course-detail-mine.html" class="course-card">
+          <div class="course-info">
+            <div class="course-name">한계령 와인딩 코스</div>
+            <div class="course-meta">
+              <span>128.4 km</span>
+              <span class="course-meta-dot"></span>
+              <span>나</span>
+            </div>
+          </div>
+          <div class="owner-badge mine">❤️</div>
+        </a>
+
+        <a href="04-course-detail-mine.html" class="course-card">
+          <div class="course-info">
+            <div class="course-name">춘천 의암호 일주</div>
+            <div class="course-meta">
+              <span>67.2 km</span>
+              <span class="course-meta-dot"></span>
+              <span>나</span>
+            </div>
+          </div>
+          <div class="owner-badge mine">❤️</div>
+        </a>
+
+        <!-- 즐겨찾기한 남의 코스 섹션 -->
+        <div class="section-header" style="margin-top:8px;">즐겨찾기한 코스 · 3</div>
+
+        <!-- 코스 아이템: 남의 코스 (노란별) -->
+        <a href="04-course-detail-mine.html" class="course-card">
+          <div class="course-info">
+            <div class="course-name">대관령 업힐 루트</div>
+            <div class="course-meta">
+              <span>94.0 km</span>
+              <span class="course-meta-dot"></span>
+              <span>라이더K</span>
+            </div>
+          </div>
+          <div class="owner-badge bookmarked">⭐</div>
+        </a>
+
+        <a href="04-course-detail-mine.html" class="course-card">
+          <div class="course-info">
+            <div class="course-name">제주 해안도로 완주</div>
+            <div class="course-meta">
+              <span>210.8 km</span>
+              <span class="course-meta-dot"></span>
+              <span>jeju_rider</span>
+            </div>
+          </div>
+          <div class="owner-badge bookmarked">⭐</div>
+        </a>
+
+        <a href="04-course-detail-mine.html" class="course-card">
+          <div class="course-info">
+            <div class="course-name">남해 바래길 해안코스</div>
+            <div class="course-meta">
+              <span>156.3 km</span>
+              <span class="course-meta-dot"></span>
+              <span>바다라이더</span>
+            </div>
+          </div>
+          <div class="owner-badge bookmarked">⭐</div>
+        </a>
+
+        <!-- 하단 여백 (FAB 가림 방지) -->
+        <div style="height: 72px;"></div>
+
+        <!-- FAB (+) -->
+        <button class="fab" onclick="showToast('코스 생성 기능은 2차 스코프입니다.')">＋</button>
+
+      </div>
+
+    </div>
+
+    <!-- 프로토타입 네비게이션 -->
+    <div class="proto-nav">
+      <a href="01-home-expanded-menu.html">← 홈 메뉴</a>
+      <span class="proto-screen-label">02 내 코스 탭</span>
+      <a href="03-explore.html">탐색 탭 →</a>
+    </div>
+  </div>
+</div>
+
+<!-- 토스트 -->
+<div class="toast" id="toast"></div>
+
+<script>
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+</script>
+</body>
+</html>

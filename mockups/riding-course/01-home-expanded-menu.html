@@ -1,0 +1,304 @@
+<!--
+  화면명: 홈 - 확장 메뉴 열림 상태 (4버튼)
+  요구사항: #1 (기존 '코스 탐색' → '찾아보기'로 이름 변경), #2 (라이딩 코스 신규 버튼 추가)
+  변경점: 기존 3버튼(코스탐색/내바이크/뱅킹각) → 4버튼(찾아보기/내바이크/뱅킹각/라이딩코스)
+-->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BRD 목업 — 홈 확장 메뉴 (4버튼)</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* 이 화면 전용 오버레이 레이아웃 */
+    .home-screen {
+      position: relative;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--color-bg);
+    }
+
+    /* 홈 화면 더미 컨텐츠 */
+    .home-content {
+      flex: 1;
+      padding: 16px;
+      overflow-y: auto;
+    }
+
+    .home-greeting {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .home-sub {
+      font-size: 14px;
+      color: var(--color-text-secondary);
+      margin-bottom: 20px;
+    }
+
+    .home-card {
+      background: var(--color-card);
+      border-radius: var(--r-lg);
+      padding: 16px;
+      box-shadow: var(--shadow-card);
+      margin-bottom: 12px;
+    }
+
+    .home-card-label {
+      font-size: 12px;
+      color: var(--color-text-secondary);
+      margin-bottom: 4px;
+    }
+
+    .home-card-value {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    /* 어두운 배리어 */
+    .dark-barrier {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.25);
+      z-index: 4;
+    }
+
+    /* 확장 메뉴 컨테이너: 바텀바 바로 위 */
+    .expand-menu-wrap {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 70px; /* barHeight(60) + 여백(10) */
+      display: flex;
+      justify-content: center;
+      z-index: 5;
+      pointer-events: none;
+    }
+
+    .expand-menu-4btn {
+      position: relative;
+      width: 340px;
+      height: 140px;
+    }
+
+    /* 4버튼 배치
+       기존 3버튼: spread=70, rise=40, center=78
+       4버튼: 좌우 대칭, 버튼 사이 간격 확보
+       좌외  → left
+       좌내  → center-left
+       우내  → center-right
+       우외  → right
+    */
+    .sub-btn {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      pointer-events: all;
+      cursor: pointer;
+      text-decoration: none;
+    }
+
+    .sub-btn-circle {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+      transition: transform 0.12s;
+    }
+
+    .sub-btn:hover .sub-btn-circle {
+      transform: scale(1.08);
+    }
+
+    .sub-btn-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #fff;
+      background: rgba(0,0,0,0.60);
+      padding: 2px 8px;
+      border-radius: 8px;
+      white-space: nowrap;
+    }
+
+    /* 4버튼 부채꼴 좌표 (컨테이너 width=340, center=170) */
+    /* 찾아보기: 가장 왼쪽 + 낮게 */
+    .btn-explore    { left: 10px;  bottom: 16px; }
+    /* 내 바이크: 왼쪽 내측 + 높게 */
+    .btn-mybike     { left: 88px;  bottom: 74px; }
+    /* 뱅킹각: 오른쪽 내측 + 높게 */
+    .btn-banking    { left: 196px; bottom: 74px; }
+    /* 라이딩 코스: 가장 오른쪽 + 낮게 */
+    .btn-riding     { left: 274px; bottom: 16px; }
+
+    /* 신규 추가 버튼 강조 */
+    .btn-riding .sub-btn-circle {
+      border: 2px solid rgba(52,199,89,0.5);
+    }
+
+    .new-badge {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      background: var(--color-success);
+      color: #fff;
+      font-size: 9px;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 10px;
+      line-height: 1.4;
+    }
+
+    /* 바이크 원형 버튼 (확장 상태) */
+    .bike-circle-wrap {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 6px;
+      display: flex;
+      justify-content: center;
+      z-index: 6;
+    }
+
+    .bike-btn-expanded {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: var(--color-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 34px;
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(0,122,255,0.45);
+      cursor: pointer;
+    }
+
+    /* 하단 바텀바 (쉘) */
+    .bottom-bar {
+      background: #fff;
+      border-top: 2px solid rgba(0,122,255,0.4);
+      height: 60px;
+      display: flex;
+      align-items: stretch;
+      flex-shrink: 0;
+      position: relative;
+      box-shadow: 0 -2px 12px rgba(0,0,0,0.08);
+      z-index: 3;
+    }
+  </style>
+</head>
+<body>
+<div class="phone-wrap">
+  <div class="phone">
+    <div class="phone-body">
+      <div class="home-screen">
+
+        <!-- 홈 AppBar -->
+        <div class="appbar">
+          <div class="appbar-title">바라다</div>
+          <button class="appbar-action">🔔</button>
+          <button class="appbar-action">⚙️</button>
+        </div>
+
+        <!-- 홈 더미 컨텐츠 (배경) -->
+        <div class="home-content">
+          <div class="home-greeting">안녕하세요, jyl93님</div>
+          <div class="home-sub">오늘도 안전한 라이딩 하세요</div>
+          <div class="home-card">
+            <div class="home-card-label">대표 바이크</div>
+            <div class="home-card-value">Honda CB500F</div>
+          </div>
+          <div class="home-card">
+            <div class="home-card-label">누적 주행거리</div>
+            <div class="home-card-value">12,340 km</div>
+          </div>
+          <div class="home-card">
+            <div class="home-card-label">다음 정비 예정</div>
+            <div class="home-card-value" style="color:var(--color-danger)">엔진오일 D-3일</div>
+          </div>
+        </div>
+
+        <!-- 어두운 배리어 -->
+        <div class="dark-barrier"></div>
+
+        <!-- 확장 메뉴 (4버튼 부채꼴) -->
+        <div class="expand-menu-wrap">
+          <div class="expand-menu-4btn">
+
+            <!-- 찾아보기 (기존 '코스 탐색'에서 이름 변경) -->
+            <a href="02-my-courses.html" class="sub-btn btn-explore">
+              <div class="sub-btn-circle">🗺️</div>
+              <div class="sub-btn-label">찾아보기</div>
+            </a>
+
+            <!-- 내 바이크 -->
+            <div class="sub-btn btn-mybike">
+              <div class="sub-btn-circle">🏍️</div>
+              <div class="sub-btn-label">내 바이크</div>
+            </div>
+
+            <!-- 뱅킹각 측정 -->
+            <div class="sub-btn btn-banking">
+              <div class="sub-btn-circle">📐</div>
+              <div class="sub-btn-label">뱅킹각 측정</div>
+            </div>
+
+            <!-- 라이딩 코스 (신규) -->
+            <a href="02-my-courses.html" class="sub-btn btn-riding">
+              <div class="sub-btn-circle" style="position:relative;">
+                🚴
+                <span class="new-badge">NEW</span>
+              </div>
+              <div class="sub-btn-label">라이딩 코스</div>
+            </a>
+
+          </div>
+        </div>
+
+        <!-- 바이크 원형 버튼 (확장 상태 = X 표시) -->
+        <div class="bike-circle-wrap">
+          <div class="bike-btn-expanded">✕</div>
+        </div>
+
+        <!-- 하단 바텀바 -->
+        <div class="bottom-bar">
+          <a href="#" class="nav-item active" style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; font-size:11px; text-decoration:none; color:var(--color-primary);">
+            <span class="nav-icon">🏠</span>홈
+          </a>
+          <a href="#" class="nav-item" style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; font-size:11px; text-decoration:none; color:var(--color-text-secondary);">
+            <span class="nav-icon">🔧</span>정비
+          </a>
+          <!-- 바이크 슬롯 (빈 공간) -->
+          <div style="flex:1;"></div>
+          <a href="#" class="nav-item" style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; font-size:11px; text-decoration:none; color:var(--color-text-secondary);">
+            <span class="nav-icon">⛽</span>주유
+          </a>
+          <a href="#" class="nav-item" style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; font-size:11px; text-decoration:none; color:var(--color-text-secondary);">
+            <span class="nav-icon">⚙️</span>설정
+          </a>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 프로토타입 네비게이션 -->
+    <div class="proto-nav">
+      <a href="index.html">← 목록</a>
+      <span class="proto-screen-label">01 홈 확장 메뉴 (4버튼)</span>
+      <a href="02-my-courses.html">내 코스 탭 →</a>
+    </div>
+  </div>
+</div>
+</body>
+</html>

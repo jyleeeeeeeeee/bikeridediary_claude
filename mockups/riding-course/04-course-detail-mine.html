@@ -1,0 +1,322 @@
+<!--
+  화면명: 코스 상세 — 내 코스 (편집/삭제 메뉴)
+  요구사항: #11 클릭 진입, #12 지도+정보 상하 반반, #13 지도 라인+POI 3종,
+            #14 정보 필드 (코스명/거리/작성자/waypoint 리스트), #7 내 코스 = 편집/삭제 메뉴
+-->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BRD 목업 — 코스 상세 (내 코스)</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* 상세 화면 레이아웃: AppBar + 지도 반 + 정보 반 */
+    .detail-screen {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* 지도 영역: 전체 높이의 약 절반 */
+    .map-area {
+      height: 340px;
+      flex-shrink: 0;
+      position: relative;
+      background: #D8E8D0;
+      overflow: hidden;
+    }
+
+    /* 격자 패턴 */
+    .map-area::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(120,160,120,0.2) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(120,160,120,0.2) 1px, transparent 1px);
+      background-size: 40px 40px;
+      z-index: 0;
+    }
+
+    .map-label {
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.45);
+      color: #fff;
+      font-size: 12px;
+      padding: 4px 12px;
+      border-radius: 99px;
+      z-index: 2;
+      white-space: nowrap;
+    }
+
+    /* 마커 공통 */
+    .marker {
+      position: absolute;
+      z-index: 3;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transform: translateX(-50%);
+    }
+
+    .marker-pin {
+      width: 28px;
+      height: 28px;
+      border-radius: 50% 50% 50% 0;
+      transform: rotate(-45deg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+    }
+
+    .marker-pin::after {
+      content: '';
+      width: 10px;
+      height: 10px;
+      background: #fff;
+      border-radius: 50%;
+      transform: rotate(45deg);
+    }
+
+    .marker-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: #fff;
+      background: rgba(0,0,0,0.55);
+      padding: 2px 6px;
+      border-radius: 6px;
+      margin-top: 3px;
+      white-space: nowrap;
+    }
+
+    .marker.start      { left: 20%; top: 58%; }
+    .marker.wp1        { left: 38%; top: 38%; }
+    .marker.wp2        { left: 58%; top: 28%; }
+    .marker.wp3        { left: 76%; top: 42%; }
+    .marker.dest       { left: 84%; top: 58%; }
+
+    .pin-start { background: #34C759; }
+    .pin-wp    { background: #007AFF; }
+    .pin-dest  { background: #FF3B30; }
+
+    /* 드롭다운 오버레이 */
+    .dropdown-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 30;
+      display: none;
+    }
+
+    .dropdown-overlay.open {
+      display: block;
+    }
+
+    .dropdown-backdrop {
+      position: absolute;
+      inset: 0;
+    }
+
+    .dropdown-menu {
+      position: absolute;
+      right: 12px;
+      top: 48px;
+      background: var(--color-card);
+      border-radius: var(--r-lg);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.18);
+      overflow: hidden;
+      min-width: 160px;
+      z-index: 1;
+    }
+
+    .dropdown-item {
+      padding: 13px 18px;
+      font-size: 15px;
+      color: var(--color-text-primary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid var(--color-divider);
+    }
+
+    .dropdown-item:last-child { border-bottom: none; }
+    .dropdown-item:hover { background: var(--color-bg); }
+    .dropdown-item.danger { color: var(--color-danger); }
+  </style>
+</head>
+<body>
+<div class="phone-wrap">
+  <div class="phone">
+    <div class="phone-body">
+      <div class="detail-screen">
+
+        <!-- AppBar (내 코스: 뒤로 + 더보기 메뉴) -->
+        <div class="appbar" style="position:relative; z-index:31;">
+          <a href="02-my-courses.html" class="appbar-back">‹</a>
+          <div class="appbar-title">코스 상세</div>
+          <!-- 내 코스: 편집/삭제 메뉴 버튼 -->
+          <button class="appbar-action" id="menuBtn" onclick="toggleMenu()">⋮</button>
+        </div>
+
+        <!-- 드롭다운 메뉴 (내 코스 전용) -->
+        <div class="dropdown-overlay" id="dropdownOverlay">
+          <div class="dropdown-backdrop" onclick="toggleMenu()"></div>
+          <div class="dropdown-menu">
+            <div class="dropdown-item" onclick="showToast('코스 편집 기능은 2차 스코프입니다.'); toggleMenu();">
+              <span>✏️</span> 코스 편집
+            </div>
+            <div class="dropdown-item" onclick="showToast('코스 복사 기능은 2차 스코프입니다.'); toggleMenu();">
+              <span>📋</span> 코스 복사
+            </div>
+            <div class="dropdown-item danger" onclick="showToast('삭제 확인 다이얼로그 표시'); toggleMenu();">
+              <span>🗑️</span> 삭제
+            </div>
+          </div>
+        </div>
+
+        <!-- 지도 영역 (절반) -->
+        <div class="map-area">
+          <div class="map-label">flutter_naver_map 영역 (목업 placeholder)</div>
+
+          <!-- Polyline SVG -->
+          <svg viewBox="0 0 414 340" preserveAspectRatio="none"
+               style="position:absolute;inset:0;width:100%;height:100%;z-index:1;">
+            <!-- 코스 라인 (출발→경유1→경유2→경유3→목적) -->
+            <polyline
+              points="83,197  157,129  240,95  314,143  347,197"
+              fill="none"
+              stroke="#007AFF"
+              stroke-width="4"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              opacity="0.85"
+            />
+          </svg>
+
+          <!-- 마커: 출발지 (초록) -->
+          <div class="marker start">
+            <div class="marker-pin pin-start"></div>
+            <div class="marker-label">출발</div>
+          </div>
+
+          <!-- 마커: 경유지 1 (파랑) -->
+          <div class="marker wp1">
+            <div class="marker-pin pin-wp"></div>
+            <div class="marker-label">1</div>
+          </div>
+
+          <!-- 마커: 경유지 2 (파랑) -->
+          <div class="marker wp2">
+            <div class="marker-pin pin-wp"></div>
+            <div class="marker-label">2</div>
+          </div>
+
+          <!-- 마커: 경유지 3 (파랑) -->
+          <div class="marker wp3">
+            <div class="marker-pin pin-wp"></div>
+            <div class="marker-label">3</div>
+          </div>
+
+          <!-- 마커: 목적지 (빨강) -->
+          <div class="marker dest">
+            <div class="marker-pin pin-dest"></div>
+            <div class="marker-label">도착</div>
+          </div>
+        </div>
+
+        <!-- 정보 패널 (절반) -->
+        <div class="detail-panel">
+
+          <!-- 코스명 + 길이 -->
+          <div class="detail-course-name">한계령 와인딩 코스</div>
+          <div class="detail-meta-row">
+            <span class="detail-chip">128.4 km</span>
+            <span style="color:var(--color-text-secondary); font-size:13px;">jyl93 · 내 코스</span>
+            <!-- 내 코스라서 즐겨찾기 별 표시 없음 -->
+          </div>
+
+          <div class="divider"></div>
+
+          <!-- Waypoint 리스트 -->
+          <div style="font-size:13px; font-weight:600; color:var(--color-text-secondary); margin-bottom:10px;">경유지</div>
+          <div class="waypoint-list">
+
+            <div class="waypoint-item">
+              <div class="wp-dot start">S</div>
+              <div class="wp-info">
+                <div class="wp-label">출발지</div>
+                <div class="wp-name">강원 인제군 인제읍 합강리</div>
+              </div>
+            </div>
+
+            <div class="waypoint-item">
+              <div class="wp-dot waypoint">1</div>
+              <div class="wp-info">
+                <div class="wp-label">경유지 1</div>
+                <div class="wp-name">강원 인제군 북면 한계리</div>
+              </div>
+            </div>
+
+            <div class="waypoint-item">
+              <div class="wp-dot waypoint">2</div>
+              <div class="wp-info">
+                <div class="wp-label">경유지 2</div>
+                <div class="wp-name">한계령 정상 (1,004m)</div>
+              </div>
+            </div>
+
+            <div class="waypoint-item">
+              <div class="wp-dot waypoint">3</div>
+              <div class="wp-info">
+                <div class="wp-label">경유지 3</div>
+                <div class="wp-name">강원 양양군 서면 오색리</div>
+              </div>
+            </div>
+
+            <div class="waypoint-item">
+              <div class="wp-dot destination">E</div>
+              <div class="wp-info">
+                <div class="wp-label">목적지</div>
+                <div class="wp-name">강원 양양군 양양읍 남문리</div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 프로토타입 네비게이션 -->
+    <div class="proto-nav">
+      <a href="02-my-courses.html">← 내 코스 탭</a>
+      <span class="proto-screen-label">04 상세 (내 코스)</span>
+      <a href="05-course-detail-others.html">상세(남의 코스) →</a>
+    </div>
+  </div>
+</div>
+
+<!-- 토스트 -->
+<div class="toast" id="toast"></div>
+
+<script>
+function toggleMenu() {
+  const overlay = document.getElementById('dropdownOverlay');
+  overlay.classList.toggle('open');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+</script>
+</body>
+</html>

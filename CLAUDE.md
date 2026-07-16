@@ -461,15 +461,58 @@ com.bikeridediary
       - `cloud.aws.*` 블록 제거 → `aws.*` 통합 (pre-existing 버그: Java가 cloud.aws.s3.bucket=your-bucket-name 기본값만 읽어 프로필별 aws.s3.bucket이 무시되던 문제 해결)
       - MaintenanceService의 참조 안 되던 file.upload-dir/base-url 죽은 필드 제거
 
+31. 라이딩 코스(Course) 도메인 MVP + 서브에이전트 팀 도입 (2026-07-16)
+    - **커스텀 에이전트 7명 등록** (`brd_claude/.claude/agents/`):
+      - `pm`, `publisher`, `dba`, `backend-dev`, `flutter-dev`, `code-reviewer`, `qa`
+      - dba/backend-dev는 조력자(가이드만, Read/Grep/Glob/Bash), 실제 수정은 사용자
+      - flutter-dev/pm은 직접 구현 권한
+    - **라이딩 코스 MVP 워크플로** (게이트 3단계):
+      - ① pm 명세/태스크 분해 → 사용자 승인
+      - ② publisher(목업) + dba(DDL) + backend-dev(백엔드 스펙) 병렬 → 사용자 승인
+      - ③ flutter-dev(앱 구현) + code-reviewer + qa
+    - **백엔드 (brd_be)** — 사용자 직접 구현 완료:
+      - 3개 테이블: `courses`, `course_waypoints`, `course_favorites` (schema.sql)
+      - courses: hard delete 정책(deleted_at 없음), user_id nullable(시드/큐레이션 대비), source_course_id 자기참조 SET NULL(파생 코스 유지)
+      - waypoints: `place_id` 옵셔널 FK + 좌표/이름 스냅샷 저장(place 수정·삭제에도 코스 유효), `role CHECK IN ('START','VIA','END')`, UNIQUE (course_id, seq), lat/lng `NUMERIC(9,7)/(10,7)`
+      - favorites: 복합 PK (course_id, user_id), `@EmbeddedId` 방식
+      - 6개 엔드포인트: GET /courses/my, GET /courses(게스트 허용), GET /courses/{id}, POST/DELETE favorite, DELETE course
+      - IDOR 방어: validateDetailAccess (내 것 or 공개 or 즐겨찾기)
+      - 상세 조회 fetch join (waypoint N+1 방지)
+      - ErrorCode 3개 추가: COURSE_FAVORITE_ALREADY_EXISTS/NOT_FOUND/OWN_COURSE
+      - SecurityConfig: `/api/v1/courses` GET만 permitAll
+      - Place 도메인: 신규 등록 시 placeName 중복 체크 (`existsBy`) 추가
+    - **앱 (brd_app)**:
+      - 확장 메뉴 3→4버튼, 기존 '코스 탐색'→'찾아보기' 라벨, 신규 '라이딩 코스'(🚴 Icons.route) 추가
+      - 라우트 신규: `/riding-courses`, `/riding-courses/:id` (shell 밖)
+      - `features/riding_course/` 도메인 신설: data/model 3종, repository, provider, presentation 5개 화면(홈/탭2/상세/위젯)
+      - 홈: 커스텀 2탭바(내 코스/탐색), FAB(+ = "곧 지원 예정" 스낵바)
+      - 탐색 탭: CupertinoSearchTextField in-memory 필터, 낙관적 즐겨찾기 토글 + 실패 시 롤백 + 스낵바
+      - 상세 화면: 지도(폴리라인+마커 3종) + 정보 반반, 내 코스는 삭제 다이얼로그(Cupertino destructive), 남 코스는 즐겨찾기+복사편집(스낵바)
+      - waypoint role은 백엔드 DB와 통일 (START/VIA/END)
+      - `placeId`, `placeCategoryCode` 옵셔널 필드 파싱 (딥링크는 후속)
+      - Repository fallback은 `kDebugMode` 한정 (프로덕션 빌드 하드코딩 배제, 실패 시 rethrow로 롤백 가능)
+    - **부가 버그 수정**: place 이름/좌표 편집 시 course_map_screen의 마커 갱신 안 되던 문제 → `_syncMarkers`가 좌표/이름/카테고리 변경 감지 시 마커 삭제 후 재생성
+    - **문서 (brd_claude)**:
+      - `guides/course-schema.md`, `guides/course-backend.md` (사용자 직접 구현용 스니펫)
+      - `mockups/riding-course/` HTML 목업 6개 + index (브라우저로 시각 확인)
+    - **미결(후속 처리 예정)**:
+      - `findFavoritedByOthers` JPQL의 `c.isPublic = TRUE` 조건 → 즐겨찾기 후 비공개 전환 시 MY탭 누락 문제 (QA 발견)
+      - place 중복 체크 좌표 근접 조합(옵션 A 100m Haversine) 도입 여부
+      - 코스 생성/편집(2차 스코프): Naver Directions 15 통합. `NaverMapsClient/Properties`는 준비 상태
+      - GPX 업로드, GPS 자동 기록은 별도 사이클
+      - 실기기 시나리오 검증 (Galaxy Z Flip3): 확장 메뉴 4버튼 겹침, 지도 렌더링 성능
+
 ### 다음 단계
 
+- **라이딩 코스 2차 스코프**: 코스 생성/편집 UI (Naver Directions 15 통합, waypoint 지도 편집)
+- `findFavoritedByOthers` JPQL의 `isPublic = TRUE` 조건 제거 (즐겨찾기 후 비공개 전환 시 MY탭 누락 대응)
+- place 중복 체크 좌표 근접(100m Haversine) 조합 도입 여부
 - **Phase 3 클라이언트 도메인 이전 진행**: 주유(Fueling) → 정비(Maintenance) 순, 백엔드 upsert 필요
 - **주유소 지도 통합**: place UI 토글의 주유 카테고리를 기존 station API에 연결 (또는 place로 흡수)
 - **카카오맵/네이버 지도 딥링크 버튼**: 하단 시트에 url_launcher로 추가 (TODO 표시됨)
 - **place_categories 시드 확인**: schema.sql/data.sql에 없음 — DB에 직접 seed된 상태로 추정. OTHER row가 실제 존재하는지 확인 필요 (없으면 앱 '기타' 저장 시 FK 위반)
 - **SecurityConfig의 /api/v1/places/** 정리**: 지금 permitAll이라 POST/PATCH도 무인증. 인증 정리를 나중에 다른 엔드포인트들과 일괄 처리 예정
 - Flutter 앱 실기기 오프라인 게스트 시나리오 검증 (비행기 모드 → 가입없이 시작하기 → 뱅킹)
-- 라이딩 코스(Course) 도메인 (GPX 기록/업로드, Naver Directions 15 활용)
 
 ---
 

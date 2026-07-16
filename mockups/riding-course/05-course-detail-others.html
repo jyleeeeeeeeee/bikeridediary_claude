@@ -1,0 +1,330 @@
+<!--
+  화면명: 코스 상세 — 남의 코스 (즐겨찾기 + 복사편집 메뉴)
+  요구사항: #11 클릭 진입, #12 지도+정보 상하 반반, #13 지도 라인+POI 3종,
+            #14 정보 필드, #10 즐겨찾기 별 토글 (AppBar 우측), 남의 코스 = 즐겨찾기+복사편집 메뉴
+-->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BRD 목업 — 코스 상세 (남의 코스)</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .detail-screen {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .map-area {
+      height: 340px;
+      flex-shrink: 0;
+      position: relative;
+      background: #D8E8D0;
+      overflow: hidden;
+    }
+
+    .map-area::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(120,160,120,0.2) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(120,160,120,0.2) 1px, transparent 1px);
+      background-size: 40px 40px;
+      z-index: 0;
+    }
+
+    .map-label {
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.45);
+      color: #fff;
+      font-size: 12px;
+      padding: 4px 12px;
+      border-radius: 99px;
+      z-index: 2;
+      white-space: nowrap;
+    }
+
+    .marker {
+      position: absolute;
+      z-index: 3;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transform: translateX(-50%);
+    }
+
+    .marker-pin {
+      width: 28px;
+      height: 28px;
+      border-radius: 50% 50% 50% 0;
+      transform: rotate(-45deg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+    }
+
+    .marker-pin::after {
+      content: '';
+      width: 10px;
+      height: 10px;
+      background: #fff;
+      border-radius: 50%;
+      transform: rotate(45deg);
+    }
+
+    .marker-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: #fff;
+      background: rgba(0,0,0,0.55);
+      padding: 2px 6px;
+      border-radius: 6px;
+      margin-top: 3px;
+      white-space: nowrap;
+    }
+
+    .marker.start  { left: 15%; top: 62%; }
+    .marker.wp1    { left: 35%; top: 45%; }
+    .marker.wp2    { left: 55%; top: 32%; }
+    .marker.wp3    { left: 70%; top: 38%; }
+    .marker.dest   { left: 88%; top: 55%; }
+
+    .pin-start { background: #34C759; }
+    .pin-wp    { background: #007AFF; }
+    .pin-dest  { background: #FF3B30; }
+
+    /* 드롭다운 */
+    .dropdown-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 30;
+      display: none;
+    }
+
+    .dropdown-overlay.open { display: block; }
+
+    .dropdown-backdrop {
+      position: absolute;
+      inset: 0;
+    }
+
+    .dropdown-menu {
+      position: absolute;
+      right: 12px;
+      top: 48px;
+      background: var(--color-card);
+      border-radius: var(--r-lg);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.18);
+      overflow: hidden;
+      min-width: 170px;
+      z-index: 1;
+    }
+
+    .dropdown-item {
+      padding: 13px 18px;
+      font-size: 15px;
+      color: var(--color-text-primary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid var(--color-divider);
+    }
+
+    .dropdown-item:last-child { border-bottom: none; }
+    .dropdown-item:hover { background: var(--color-bg); }
+
+    /* 즐겨찾기 버튼 (AppBar 우측) */
+    .star-appbar-btn {
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      cursor: pointer;
+      border: none;
+      background: none;
+      border-radius: 50%;
+      flex-shrink: 0;
+      transition: transform 0.12s;
+    }
+
+    .star-appbar-btn:hover {
+      transform: scale(1.2);
+      background: rgba(255,204,0,0.12);
+    }
+  </style>
+</head>
+<body>
+<div class="phone-wrap">
+  <div class="phone">
+    <div class="phone-body">
+      <div class="detail-screen">
+
+        <!-- AppBar (남의 코스: 뒤로 + 즐겨찾기 별 + 더보기 메뉴) -->
+        <div class="appbar" style="position:relative; z-index:31;">
+          <a href="03-explore.html" class="appbar-back">‹</a>
+          <div class="appbar-title">코스 상세</div>
+          <!-- 즐겨찾기 토글 (남의 코스 전용) -->
+          <button class="star-appbar-btn" id="starBtn" onclick="toggleStar()">⭐</button>
+          <!-- 더보기 메뉴 -->
+          <button class="appbar-action" onclick="toggleMenu()">⋮</button>
+        </div>
+
+        <!-- 드롭다운 메뉴 (남의 코스 전용) -->
+        <div class="dropdown-overlay" id="dropdownOverlay">
+          <div class="dropdown-backdrop" onclick="toggleMenu()"></div>
+          <div class="dropdown-menu">
+            <div class="dropdown-item" onclick="showToast('코스 복사 편집 기능은 2차 스코프입니다.'); toggleMenu();">
+              <span>📋</span> 내 코스로 복사
+            </div>
+            <div class="dropdown-item" onclick="showToast('공유 링크 복사됨'); toggleMenu();">
+              <span>🔗</span> 공유
+            </div>
+          </div>
+        </div>
+
+        <!-- 지도 영역 -->
+        <div class="map-area">
+          <div class="map-label">flutter_naver_map 영역 (목업 placeholder)</div>
+
+          <svg viewBox="0 0 414 340" preserveAspectRatio="none"
+               style="position:absolute;inset:0;width:100%;height:100%;z-index:1;">
+            <polyline
+              points="62,211  145,153  228,109  290,129  364,187"
+              fill="none"
+              stroke="#007AFF"
+              stroke-width="4"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              opacity="0.85"
+            />
+          </svg>
+
+          <div class="marker start">
+            <div class="marker-pin pin-start"></div>
+            <div class="marker-label">출발</div>
+          </div>
+          <div class="marker wp1">
+            <div class="marker-pin pin-wp"></div>
+            <div class="marker-label">1</div>
+          </div>
+          <div class="marker wp2">
+            <div class="marker-pin pin-wp"></div>
+            <div class="marker-label">2</div>
+          </div>
+          <div class="marker wp3">
+            <div class="marker-pin pin-wp"></div>
+            <div class="marker-label">3</div>
+          </div>
+          <div class="marker dest">
+            <div class="marker-pin pin-dest"></div>
+            <div class="marker-label">도착</div>
+          </div>
+        </div>
+
+        <!-- 정보 패널 -->
+        <div class="detail-panel">
+
+          <div class="detail-course-name">대관령 업힐 루트</div>
+          <div class="detail-meta-row">
+            <span class="detail-chip">94.0 km</span>
+            <span style="color:var(--color-text-secondary); font-size:13px;">라이더K · 공개 코스</span>
+          </div>
+
+          <div class="divider"></div>
+
+          <div style="font-size:13px; font-weight:600; color:var(--color-text-secondary); margin-bottom:10px;">경유지</div>
+          <div class="waypoint-list">
+
+            <div class="waypoint-item">
+              <div class="wp-dot start">S</div>
+              <div class="wp-info">
+                <div class="wp-label">출발지</div>
+                <div class="wp-name">강원 강릉시 성산면 어흘리</div>
+              </div>
+            </div>
+
+            <div class="waypoint-item">
+              <div class="wp-dot waypoint">1</div>
+              <div class="wp-info">
+                <div class="wp-label">경유지 1</div>
+                <div class="wp-name">강원 평창군 대관령면 횡계리</div>
+              </div>
+            </div>
+
+            <div class="waypoint-item">
+              <div class="wp-dot waypoint">2</div>
+              <div class="wp-info">
+                <div class="wp-label">경유지 2</div>
+                <div class="wp-name">대관령 정상 (832m)</div>
+              </div>
+            </div>
+
+            <div class="waypoint-item">
+              <div class="wp-dot waypoint">3</div>
+              <div class="wp-info">
+                <div class="wp-label">경유지 3</div>
+                <div class="wp-name">강원 강릉시 구정면 금광리</div>
+              </div>
+            </div>
+
+            <div class="waypoint-item">
+              <div class="wp-dot destination">E</div>
+              <div class="wp-info">
+                <div class="wp-label">목적지</div>
+                <div class="wp-name">강원 강릉시 강문동 해변</div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 프로토타입 네비게이션 -->
+    <div class="proto-nav">
+      <a href="04-course-detail-mine.html">← 상세(내 코스)</a>
+      <span class="proto-screen-label">05 상세 (남의 코스)</span>
+      <a href="index.html">목록 →</a>
+    </div>
+  </div>
+</div>
+
+<!-- 토스트 -->
+<div class="toast" id="toast"></div>
+
+<script>
+let starOn = true; // 초기값: 즐겨찾기 ON
+
+function toggleStar() {
+  const btn = document.getElementById('starBtn');
+  starOn = !starOn;
+  btn.textContent = starOn ? '⭐' : '☆';
+  showToast(starOn ? '즐겨찾기에 추가했습니다.' : '즐겨찾기에서 제거했습니다.');
+}
+
+function toggleMenu() {
+  const overlay = document.getElementById('dropdownOverlay');
+  overlay.classList.toggle('open');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+</script>
+</body>
+</html>

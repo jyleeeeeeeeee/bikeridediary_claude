@@ -2,7 +2,7 @@
 
 > 이 파일은 `CLAUDE.md`에서 `@claude-memory.md`로 import되어 세션 시작 시 자동 로드됩니다.
 > Claude 홈(`~/.claude`)의 메모리는 git 공유가 안 되므로, 정본은 이 파일에 둡니다.
-> 다른 환경에서도 git pull 하면 그대로 읽힙니다. 최종 갱신: 2026-07-13.
+> 다른 환경에서도 git pull 하면 그대로 읽힙니다. 최종 갱신: 2026-07-24.
 
 ---
 
@@ -173,6 +173,21 @@
 ## 미해결 사항 (앱 완성 후 리마인드 필요)
 
 > 사용자가 "앱 기능 다 됐어", "출시 준비", "배포 전 체크" 등 완성/오픈 관련 언급을 하면 아래 항목을 **먼저 상기시킬 것**.
+
+### 다음 사이클 확정 — JWT stateless 리팩터 (2026-07-21 사용자 지시)
+- **트리거**: 장소 승인 워크플로 사이클 완료 직후 **즉시** 착수 (사용자 명시 지시)
+- 현재 문제: `JwtAuthenticationFilter.doFilterInternal` → `CustomUserDetailsService.loadUserByUsername`이 매 인증 요청마다 `userRepository.findByIdAndDeletedAtIsNull()` DB 조회. JWT stateless 이점 상실.
+- 방향:
+  1. `JwtTokenProvider`에 role claim 추가 (`.claim("role", user.getRole())`) — 액세스 토큰 발급 시
+  2. `JwtTokenProvider.extractRole` 추가
+  3. `JwtAuthenticationFilter`가 DB 대신 토큰 claim에서 userId + role 직접 추출, `CustomUserDetails` 생성 시 DB 조회 스킵
+  4. `CustomUserDetailsService`는 최초 로그인·Refresh 시에만 호출 (여전히 유지, 로그인 흐름에서 필요)
+  5. role 변경/유저 삭제 반영 지연 → Refresh 시점에 반영. 즉시 강제 로그아웃 필요하면 Redis 블랙리스트 (별개 스코프)
+- 파급 영향:
+  - 모든 소셜 로그인 provider (Kakao/Google/Apple/Naver)의 액세스 토큰 발급 지점 UserEntity role 참조 필요
+  - Refresh token 재발급 시에도 role claim 재삽입
+  - 앱은 여전히 UserResponse.role만 참조 (변경 없음)
+- 인수인계 파일: `claude-memory.md` 이 섹션 + `guides/place-approval-backend.md`의 "JwtTokenProvider 수정 불필요" 노트 뒤집기
 
 ### 보안 — Place 좌표 수정 엔드포인트 무인증 (2026-07-14 기록)
 - `PATCH /api/v1/places/{id}` — `SecurityConfig.PERMIT_ALL_ENDPOINTS`의 `/api/v1/places/**` 뒤에 있어 **누구나 어떤 place의 좌표든 수정 가능**.

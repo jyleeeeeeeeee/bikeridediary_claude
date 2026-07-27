@@ -502,6 +502,61 @@ com.bikeridediary
       - GPX 업로드, GPS 자동 기록은 별도 사이클
       - 실기기 시나리오 검증 (Galaxy Z Flip3): 확장 메뉴 4버튼 겹침, 지도 렌더링 성능
 
+32. 장소 승인 워크플로 + 페이징 + 부가 기능 대사이클 (2026-07-21 ~ 2026-07-24)
+    - **장소 등록/수정 어드민 승인 워크플로**:
+      - 백엔드: `place_change_requests` 테이블(단일, type/target/payload JSONB/status/reviewer), 유저 요청 + 어드민 승인/반려 API, `@EnableMethodSecurity` + `@PreAuthorize("hasRole('ADMIN')")`, `hypersistence-utils-hibernate-63` JSONB 매핑
+      - **어드민 자동 승인 (D2=B, B안)**: 어드민이 요청 생성 시 같은 트랜잭션에서 auto-approve, 응답 status=APPROVED 즉시 반영
+      - `users.role VARCHAR(20)` (USER/ADMIN), `UserRole` enum, `CustomUserDetails.getAuthorities()` role 반영
+      - 앱: 로컬 저장(brd_local.db `local_places`) → "장소 제보하기" → PENDING/APPROVED → 지도 진입 시 자동 sync + APPROVED 로컬 hardDelete
+      - `LocalPlace` `deletedAt` 컬럼, `LocalPlaceRepository.findDuplicate`(이름+50m Haversine), 서버 place와 통합 중복 체크(`findDuplicatePlace`)
+      - 어드민 화면 (요청 목록·상세, `@PreAuthorize`), 내 요청 목록(설정 진입), 사용자 편집 화면들의 "요청 생성" 흐름
+      - 어드민 장소 삭제 (soft/hard 선택 다이얼로그, hard는 CASCADE로 place_wishes/change_requests 함께 삭제)
+      - 설명(description) 필드: `_ConfirmStep`, `NewPlaceFormScreen`, `PlaceInfoEditScreen` 3화면 + `UpdateInfoPayload.description` + `PlaceEntity.updateInfo(name, cat, desc)`
+    - **주소 검색(NCP Geocoding)** — 세그먼트 "장소 검색" vs "주소로 등록", `NewPlaceFormScreen`(이름/카테고리 필수 입력), 백엔드 `NaverGeocodingClient` + `GET /api/v1/places/geocode`
+    - **좌표 보정 위치 검색** — `LocationSearchSheet`(POI/주소 세그먼트), `place_coordinate_edit_screen` AppBar 🔍 → 카메라 이동
+    - **페이징 (A+C 하이브리드)**:
+      - `PageResponse<T>` + `PageResponse.ofSlice()` 공용 래퍼 (Slice의 `totalElements`/`totalPages` nullable)
+      - Page 유지: 어드민 요청 큐, 내 요청, 주유/정비 이력 (총 개수 UI 활용)
+      - Slice 전환: 공개 코스(`findByIsPublicTrue`), `searchPublicByName`, `findFavoritedByOthers` (count 오버헤드 회피)
+      - `/courses/my` → `/my/owned` + `/my/favorites` 분리, N+1 회피 위해 favorite 여부 `findFavoritedCourseIdsIn` batch 조회
+      - 앱 `Paged<T>` 모델 + `InfiniteScrollController` 공용 유틸, 어드민/내 요청 화면 무한 스크롤 완료
+      - 나머지 화면(fueling/maintenance/course home/POI 검색)은 첫 페이지 20건만, 무한 스크롤 UI 미구현 (task #13 후속)
+    - **인증/세션 개선**:
+      - `GET /api/v1/users/me` + `AuthNotifier.checkAuth()`가 토큰 있으면 fetchMe로 유저 정보 채움 (앱 재시작 시 세션 복원 + role 반영)
+      - `GlobalExceptionHandler`에 `AuthorizationDeniedException`/`AccessDeniedException` 핸들러 (403 반환. 이전 500 대신)
+      - `UserResponse.role` 필드 (role=USER 기본)
+      - 서버 오류 메시지 앱 정확 표시 (`{"error": {"message": ...}}` 경로 파싱, 진짜 네트워크 오류만 "네트워크 오류" 표시)
+    - **DB — seq → no 리네임 + 전 테이블 적용 (14 테이블)**:
+      - 각 테이블 `no BIGINT UNIQUE DEFAULT nextval('<t>_no_seq')` 컬럼 + 시퀀스 + UNIQUE 제약
+      - Entity `@Column(name="no", insertable=false, updatable=false) @Generated(event=EventType.INSERT) private Long no;`
+      - Repository `findByNo(Long no)`
+      - `course_waypoints`는 기존 `seq SMALLINT`(순서) 유지 + `no BIGINT` 신규 추가
+      - schema.sql에 `DO $$ ... $$` PL/pgSQL 블록 사용 시 Spring `ScriptUtils`가 `$$` 미지원 → 세미콜론에서 자름 → 각 테이블별 `ADD COLUMN IF NOT EXISTS` + `ALTER COLUMN ... SET DEFAULT` 개별 문장으로 재작성
+      - **컬럼 순서**: 신규 CREATE TABLE엔 `no`가 첫 컬럼. 기존 로컬 DB는 ALTER ADD라 뒤에 붙음 (재배치 안 함, 실기능 무관)
+    - **Hibernate 6.x UUID batch 이슈**:
+      - `EntityBatchLoaderArrayParam`이 UUID[] → byte[] 캐스팅 실패 (`preferred_uuid_jdbc_type` 설정만으론 안 해결)
+      - 각 엔티티 `@Id`에 `@JdbcTypeCode(SqlTypes.UUID)` 명시 (10개 엔티티 + `CourseFavoriteId` embeddable)
+      - 어드민 요청 목록 `PlaceChangeRequestRepository.findByStatus`에 `@EntityGraph({"requester","targetPlace"})` → lazy 프록시 초기화 회피
+    - **UI/UX 개선 다수**:
+      - 좌표 값 노출 제거 (사용자 화면 전체), 어드민 좌표 요청 상세 지도 확대·드래그 허용
+      - 로컬 pin 마커: `Icons.location_on` (iOS 블루), 서버 pin은 📍 이모지 유지
+      - 크로스헤어 조정 렉 해결 (`_initial` 상수 + `onCameraChange` 유지 또는 `onCameraIdle`)
+      - 회원가입/이메일 로그인 시트 하단 nav bar 여백, 뒤로가기 shell 최상위 double-tap-to-exit
+      - `_ConfirmStep` 상단 좌표 카드 → 주소 표시, "🏍️" 이모지 오버플로우 FittedBox, 로그인 하단 버튼 SingleChildScrollView
+      - "공개 등록 요청" 문구 → **"장소 제보"** 전체 통일 (버튼/스낵바/리스트 라벨)
+      - `place_info_edit_screen` 키보드 overflow → `SingleChildScrollView` + `bottomNavigationBar`
+    - **장소 제보 랭킹 화면 신설** (2026-07-24 세션 후반):
+      - 백엔드 `GET /api/v1/places/rankings` — `countRegistrationsByUser` 활용 + rank 번호
+      - `PlaceResponse.userId` 필드 추가 (배지·필터용)
+      - 앱 `PlaceRankingScreen` (`/place-rankings`): 상단 그래디언트 헤더 "나의 점수 N점", 1/2/3위 🥇🥈🥉 이모지, 나머지 숫자, 내 항목 강조, count는 "N 점"으로 표시
+      - 진입점: 지도(찾아보기) AppBar 새로고침 왼쪽 🏆 아이콘 (설정에서는 제거)
+      - 지도 필터에 "🙋 내 장소" chip 추가: mineActive alone → 내 등록 전부, +카테고리 → AND 결합
+    - **미결 / 후속**:
+      - 앱 UI 무한 스크롤 확장 (task #13): fueling/maintenance/course/POI 화면들
+      - JWT stateless 리팩터 (task #7): 매 요청 DB조회 → JWT claim에 role 포함
+      - place_wishes JPA 엔티티 없음 (스키마만 seq/no 반영, 엔티티 생기면 동일 패턴 적용)
+      - course_waypoints 조회용 no는 신규 추가, 기존 seq(순서)와 공존
+
 ### 다음 단계
 
 - **라이딩 코스 2차 스코프**: 코스 생성/편집 UI (Naver Directions 15 통합, waypoint 지도 편집)

@@ -557,16 +557,64 @@ com.bikeridediary
       - place_wishes JPA 엔티티 없음 (스키마만 seq/no 반영, 엔티티 생기면 동일 패턴 적용)
       - course_waypoints 조회용 no는 신규 추가, 기존 seq(순서)와 공존
 
+33. JWT stateless 리팩터 + Phase 3 로컬 우선 완성 (2026-07-27 ~ 2026-07-28)
+    - **JWT stateless** (brd_be 커밋 `04ccd2d`):
+      - `JwtTokenProvider`: `generateAccessToken(userId, role)` + `extractUserRole` — role claim 추가
+      - `JwtAuthenticationFilter`: `userDetailsService.loadUserByUsername` 제거 → claim만으로 `CustomUserDetails` 생성 (매 요청 DB 조회 0회)
+      - `AuthService`: 5개 발급 지점(guest/signup/social/email/refresh) role 전달
+      - refresh 흐름: `userRepository.findByIdAndDeletedAtIsNull` DB 조회 1회 추가 → 최신 role 반영 + soft-deleted 유저 자동 차단
+      - 파급: role 변경/유저 삭제 반영 지연 = access 만료 주기(1시간). 즉시 강제 로그아웃 필요 시 Redis 블랙리스트 별도 스코프
+    - **Phase 3 로컬 우선 완성** — 주유(Fueling) + 정비(Maintenance) 이전 + 이미지 처리
+      - **백엔드 (brd_be 커밋 `04ccd2d`)**:
+        - 신규 sync 엔드포인트: `POST /fuelings/sync`, `POST /maintenances/sync`(멀티파트), `POST /maintenance-schedules/sync` + 각 `GET /my` 초기 pull
+        - `MaintenanceService.sync`: `existingImageUrls`에서 빠진 URL 파일 삭제 + 새 이미지 업로드 + `setImageUrls`로 최종 확정. `parseStringToList`/`toJson`/`responseMaintenance` 기존 헬퍼 재사용
+        - `FuelingService.sync`: 이전 주유 기록 기반 `fuel_efficiency` 자동 재계산
+        - `MaintenanceScheduleService.sync`: 기존 `buildResponse(schedule, bikeId, currentMileage)` 헬퍼로 overdue 자동 판정
+        - 3개 sync 서비스 모두 `updateBikeMileage(bike)` 호출 (기존 create/update와 동일)
+        - `MaintenanceEntity.setImageUrls` public setter 추가 (sync에서 이미지 확정용)
+        - `MaintenanceScheduleEntity.@GeneratedValue` 제거 + `createWithId` 팩토리 추가
+        - **`save()` 반환값(managed 엔티티) 사용 필수**: ID 수동 세팅 시 Spring Data JPA가 `merge()` 경로로 감 → `@PrePersist`는 managed 복사본에만 발생 → `target` (detached)의 `createdAt`은 null → 응답 파싱 실패. bike/fueling/maintenance sync 3곳 모두 `target = repo.save(toSave)` 패턴으로 fix
+        - **`MaintenanceRepository` 파생 메서드 필드명 정정**: `findByBikeEntityId...` → `findByBikeId...` (`MaintenanceEntity.bike` vs `MaintenanceScheduleEntity.bikeEntity` 명명 불일치. 이전엔 lazy validation이라 startup 통과했다가 `@Query` 신규 추가로 startup validation 발동 → 4곳 rename + 호출부 3곳)
+        - **SecurityConfig 정리**: `/api/v1/fuelings/**`, `/api/v1/maintenances/**`, `/api/v1/maintenance-schedules/**` **permitAll 제거** → 인증 필수. (permitAll이면 `@AuthenticationPrincipal`이 null → controller에서 NPE)
+        - `BaseEntity`의 미사용 protected setter (setCreatedAt/setUpdatedAt) 정리
+      - **앱 (brd_app 커밋 `4b2941f`)**:
+        - SQLite v3 → v5: `fuelings`, `maintenances`, `maintenance_schedules` 테이블 신규
+        - 3개 신규 `SyncService` (Syncable): `FuelingSyncService`, `MaintenanceSyncService` (이미지 diff + 멀티파트 업로드), `MaintenanceScheduleSyncService`
+        - `pullFromServerIfEmpty`: `hasAnyRecords()` 판정 (기존 `listPendingRaw` 오판 fix)
+        - **이미지 로컬 우선**: `MaintenanceLocalRepository.persistImage` — 앱 문서 폴더로 복사(cache 청소 방어). `AuthenticatedImage` 위젯이 로컬 파일 경로/서버 URL 자동 분기 (Image.file vs HTTP)
+        - Provider 로컬 우선 재작성: `build()`가 로컬 SQLite만 조회 → **UI 절대 에러 안 남**. 안전망(try/catch) 유지
+        - **바이크 mileage 로컬 갱신**: 정비/주유 create/update 시 `_bumpBikeMileageIfHigher(bikeId, mileage)` — 서버 sync 완료 전에도 UI 즉시 반영
+        - `_triggerSync`에서 bike + 해당 도메인 sync 동시 트리거
+        - **바이크 create sync await**: 다음 화면(정비/주유)이 즉시 바이크 참조해도 서버에 존재 보장. 오프라인이면 스킵
+        - **오프라인 시도 스킵**: `_triggerSync`가 `connectivityProvider` 체크 → 오프라인이면 sync 시도 자체 안 함 (실패 로그 낭비 방지). 온라인 복구 시 SyncEngine 자동 재시도
+        - **로딩 오버레이에서 sync/pull 제외**: dio 인터셉터가 `Options.extra['background']=true` 확인 → 로딩 카운터 스킵. 8개 요청(bike/fueling/maintenance × sync/my) 모두 이 플래그 세팅
+        - Repository 축소: fueling/maintenance는 `sync()` + `getMy()`만 남기고 기존 CRUD 삭제 (SyncService만 서버 통신)
+        - main.dart에서 4개 SyncService 등록 + 로그인 시 pull
+        - UI 배지: 정비 기록/스케줄/주유 카드에 ☁️(pending)/⚠️(failed) sync 상태 표시
+    - **부수 UI/UX 버그 fix (brd_app 커밋 `4b2941f`)**:
+      - 확장 메뉴 서브 FAB 히트박스: SizedBox 높이 150→200. 안쪽 버튼(±20°)이 `dy≈113px` 이동 + Column 78px 필요 → 기존 150이라 아이콘이 Stack 밖으로 튀어나가 tap 무시됨. `Clip.none`은 시각만 클리핑 끄고 히트테스트는 여전히 Stack 크기 안에서만 동작
+      - `_onBikes` `goBranch(2, initialLocation: true)` → 조건부 `(2 == currentIndex)` (다른 브랜치에서 오면 마지막 위치 유지)
+      - 4개 FAB에 unique `heroTag` 부여 (`fab-bikes/fab-fueling/fab-maintenance/fab-riding-course`). `StatefulShellRoute.indexedStack`이 브랜치 동시 유지 → 기본 heroTag 충돌
+    - **가이드 (brd_claude 커밋 `68cbfbd`)**:
+      - `guides/jwt-stateless.md`, `guides/fueling-sync-backend.md`, `guides/maintenance-sync-backend.md`
+      - 실제 코드베이스 반영 (기존 `responseMaintenance`/`buildResponse` 헬퍼 활용, JPA auditing으로 `syncTimestamps` 불필요, `MaintenanceResponse.from(entity, List<String>)` 실제 시그니처, 필드명 관례 불일치 주의)
+    - **미결 (후속)**:
+      - `FuelingServiceTest`가 이전 fueling 마이그레이션 과정에서 이미 깨짐 (삭제된 repository 메서드 참조). 이번 세션 스코프 아님 → 별도 정리
+      - 뱅킹 세션 서버 백업은 별도 스코프 (Phase 3 목록에 있으나 이번 사이클 제외)
+      - 실기기 오프라인 시나리오 (비행기 모드 → 로컬 저장 → 온라인 복구 자동 sync) 검증 남음 — 로컬 개발 환경에선 정상 동작 확인됨
+
 ### 다음 단계
 
 - **라이딩 코스 2차 스코프**: 코스 생성/편집 UI (Naver Directions 15 통합, waypoint 지도 편집)
 - `findFavoritedByOthers` JPQL의 `isPublic = TRUE` 조건 제거 (즐겨찾기 후 비공개 전환 시 MY탭 누락 대응)
 - place 중복 체크 좌표 근접(100m Haversine) 조합 도입 여부
-- **Phase 3 클라이언트 도메인 이전 진행**: 주유(Fueling) → 정비(Maintenance) 순, 백엔드 upsert 필요
 - **주유소 지도 통합**: place UI 토글의 주유 카테고리를 기존 station API에 연결 (또는 place로 흡수)
 - **카카오맵/네이버 지도 딥링크 버튼**: 하단 시트에 url_launcher로 추가 (TODO 표시됨)
 - **place_categories 시드 확인**: schema.sql/data.sql에 없음 — DB에 직접 seed된 상태로 추정. OTHER row가 실제 존재하는지 확인 필요 (없으면 앱 '기타' 저장 시 FK 위반)
-- **SecurityConfig의 /api/v1/places/** 정리**: 지금 permitAll이라 POST/PATCH도 무인증. 인증 정리를 나중에 다른 엔드포인트들과 일괄 처리 예정
+- **SecurityConfig의 /api/v1/places/** 정리**: 지금 permitAll이라 POST/PATCH도 무인증. 인증 정리 필요 (fuelings/maintenances처럼 permitAll 제거)
+- **뱅킹 세션 서버 백업** (Phase 3 잔여): 로컬 SQLite만 저장 중, 서버 upload 미구현
+- **`FuelingServiceTest` 복구**: 삭제된 repository 메서드 참조 정리
+- **무한 스크롤 UI 확장**: fueling/maintenance/course/POI 화면들 (첫 페이지 20건만 표시 중)
 - Flutter 앱 실기기 오프라인 게스트 시나리오 검증 (비행기 모드 → 가입없이 시작하기 → 뱅킹)
 
 ---

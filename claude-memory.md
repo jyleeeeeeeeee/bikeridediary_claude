@@ -2,7 +2,7 @@
 
 > 이 파일은 `CLAUDE.md`에서 `@claude-memory.md`로 import되어 세션 시작 시 자동 로드됩니다.
 > Claude 홈(`~/.claude`)의 메모리는 git 공유가 안 되므로, 정본은 이 파일에 둡니다.
-> 다른 환경에서도 git pull 하면 그대로 읽힙니다. 최종 갱신: 2026-07-24.
+> 다른 환경에서도 git pull 하면 그대로 읽힙니다. 최종 갱신: 2026-07-28.
 
 ---
 
@@ -72,7 +72,7 @@
 - 백엔드: `/auth/login/{provider}` 통합 엔드포인트 + KakaoProvider/GoogleProvider/AppleProvider/NaverProvider(백엔드만) 완성. AuthLoginRequest credential 단일 필드로 통합됨.
 - 네이버는 백엔드만 있고 앱 미연동.
 
-### 오프라인/로컬 우선 아키텍처 (2026-07-01 Phase 1/2/4 완료, Phase 3 인수인계)
+### 오프라인/로컬 우선 아키텍처 (2026-07-28 Phase 3 완성 — 뱅킹 서버 백업만 남음)
 - 배경: 5종 로그인이 다 있어도 전부 온라인 필수 → 네트워크 없으면 앱 진입도 불가. 게스트조차 서버 게스트라 오프라인에서 무용.
 - 결정 (사용자 확정): 한 기기 전제 / 클라이언트 UUID / last-write-wins / soft delete(deleted_at) / 이미지 로컬 우선 / 바이크·정비·주유 3개 도메인 리팩터링 (뱅킹은 이미 로컬 우선).
 
@@ -95,24 +95,29 @@
 - 각 도메인 request/response, 서버 로직, 에러 처리, 클라이언트 sync 흐름
 - 백엔드 사용자 구현 순서 권장: 바이크 → 주유 → 정비 → 뱅킹
 
-**Phase 3 진행 상황 (2026-07-07)**:
-- **바이크 도메인 완료** (brd_app 10aa159/f0932ee, brd_be fc30fd6)
-  - 앱 & 백엔드 sync 엔드포인트 양쪽 완성, 통합 검증 A/B/C 시나리오 통과
-  - 참조 구현 완성 — 주유/정비도 같은 패턴 복제 가능
-- **남은 도메인**: 주유(Fueling) → 정비(Maintenance, 이미지 포함) → 뱅킹 서버 백업
-- 도메인당 7단계 작업 (바이크 참고하면 예측 가능):
-  1. 로컬 스키마 (app_database.dart의 _migrations에 v3/v4/v5 추가)
-  2. LocalRepository (SQLite CRUD, softDelete/markSynced/markFailed)
-  3. RemoteRepository에 `sync()` 메서드 추가 (POST /{domain}/sync)
-  4. SyncService (Syncable 구현 + pullFromServerIfEmpty)
-  5. Provider 로컬 우선 재작성 (client UUID 생성, invalidate 순서)
-  6. UI sync 상태 배지 (☁️ pending, ⚠️ failed)
-  7. main.dart에서 SyncEngine.register + 로그인 pull 훅 추가
-- **필수 fix 패턴**: syncPending과 pullFromServerIfEmpty 둘 다에서 로컬 갱신 후 provider invalidate 호출 필수 (안 하면 UI 재시작 전엔 반영 안 됨)
-- 정비 도메인 이미지: 로컬 임시 파일 경로 저장 → sync 시 기존 멀티파트 업로드 재사용 → 서버 응답 URL로 로컬 값 교체
-- 참조 무결성: 정비/주유의 bikeId는 바이크 sync 완료 후 시도. SyncEngine 순회 순서(바이크 먼저 등록)로 자연스럽게 해결
-- 백엔드 sync 엔드포인트 (docs/sync-api.md 참고, 사용자 직접 구현): 주유 → 정비 → 뱅킹 순
-- 백엔드 BikeEntity 리팩터 노트: @GeneratedValue 제거 → createWithId 팩토리 추가 + 기존 create()도 UUID.randomUUID() 명시. 다른 도메인도 동일 패턴 적용
+**Phase 3 완료 상태 (2026-07-28)**:
+- **바이크 도메인** (완료 2026-07-07, brd_app 10aa159/f0932ee, brd_be fc30fd6)
+- **주유(Fueling) + 정비(Maintenance, 이미지 포함)** (완료 2026-07-28, brd_be `04ccd2d`, brd_app `4b2941f`, brd_claude `68cbfbd`)
+  - 백엔드: `POST /fuelings/sync`, `POST /maintenances/sync`(멀티파트), `POST /maintenance-schedules/sync` + 각 `GET /my`
+  - 앱: SQLite v3→v5, LocalRepository 3종, SyncService 3종, Provider 로컬 우선 재작성, UI 배지
+  - 이미지 로컬 우선: `MaintenanceLocalRepository.persistImage`로 앱 문서 폴더 복사, sync 시 다중 URL/파일 자동 diff & 업로드, `AuthenticatedImage`가 로컬 경로/서버 URL 자동 분기
+  - 3개 sync 서비스에 `updateBikeMileage(bike)` 추가 (기존 create/update 흐름과 동일)
+- **뱅킹 세션 서버 백업** — 후속 사이클 (현재 로컬 SQLite `brd_banking.db`만, 서버 upload 미구현)
+
+**Phase 3 핵심 실수/교훈** (2026-07-28 세션 정리 — 다음 도메인 이전 시 참고):
+- **`save()` 반환값 사용 필수**: ID를 클라이언트에서 세팅한 엔티티는 `SimpleJpaRepository.isNew()`가 false → `merge()` 경로 → `@PrePersist`가 merge 내부의 managed 복사본에만 발생. `target = repo.save(toSave)` 안 하면 원본 참조는 detached라 `createdAt`이 null이고, 응답 파싱에서 String 캐스팅 실패. bike/fueling/maintenance sync 3곳 모두 이 패턴으로 수정. **JPA auditing 그대로 사용, `syncTimestamps` 같은 커스텀 메서드 불필요.**
+- **파생 메서드 필드명 조심**: `MaintenanceEntity`는 `private BikeEntity bike;` (필드명 `bike`) — `findByBikeId...`. `MaintenanceScheduleEntity`는 `private BikeEntity bikeEntity;` — `findByBikeEntityId...`. 관례 불일치. 잘못 쓰면 lazy validation이라 startup은 통과하다가 나중에 startup validation 발동 시 터짐 (`@Query` 신규 추가 등이 트리거). @Query로 명시하면 명확.
+- **SecurityConfig permitAll 금지**: 인증 필요한 엔드포인트를 permitAll에 두면 `@AuthenticationPrincipal`이 null → NPE. `/fuelings/**`, `/maintenances/**`, `/maintenance-schedules/**` 이런 이유로 이번에 제거. **`/places/**`는 여전히 permitAll — 남은 미결**.
+- **dio 인터셉터 로딩 카운터는 background 요청 제외해야 함**: sync/pull 8곳 모두 `Options(extra: {'background': true})` 세팅 → 인터셉터가 확인해서 카운터 스킵. 안 하면 백그라운드 sync 중에도 로딩 오버레이 표시됨.
+- **오프라인 시도 스킵**: `_triggerSync`에서 `connectivityProvider` 체크 → 오프라인이면 sync 시도 자체 안 함. 실패 로그 낭비/배터리 소모 방지. 온라인 복구 시 `SyncEngine`이 자동 재시도.
+- **바이크 mileage 로컬 갱신 필수**: 정비/주유 create 시 서버는 `updateBikeMileage`로 재계산하지만 앱 로컬 바이크는 별도. `_bumpBikeMileageIfHigher(bikeId, mileage)`로 로컬도 동시 갱신 → UI 즉시 반영.
+- **UI 버그 회귀 방지**: 확장 메뉴 서브 FAB — `Clip.none`은 시각 클리핑만 끄고 히트테스트는 여전히 Stack `size` 안에서만 동작. 내용 오버플로우 시 상단 부분이 tap 무시됨. `StatefulShellRoute.indexedStack`은 4브랜치를 동시 유지 → 각 FAB에 unique `heroTag` 필수.
+- **fire-and-forget 다중 트리거**: 정비 create 시 `bikeSyncService.syncPending()` + `maintenanceSyncService.syncPending()` 둘 다 호출. 바이크 mileage 로컬 갱신이 서버에도 push되도록. SyncEngine의 `_isSyncing` 재진입 가드 우회.
+
+**필수 fix 패턴 (도메인 이전 시 반복)**:
+- `syncPending` 완료 후 provider invalidate 호출 필수 (UI 자동 갱신)
+- `pullFromServerIfEmpty` 판정은 `hasAnyRecords()` 사용 (기존 `listPendingRaw()`는 PENDING/FAILED만 봐서 오판)
+- 참조 무결성: 정비/주유의 `bikeId`는 바이크 sync 완료 후 시도. SyncEngine 순회 순서(바이크 먼저 등록)로 자연스럽게 해결
 
 ### 지도/POI 인프라 (2026-07-07 착수)
 - 네이버 지도 통합 (flutter_naver_map, .env의 NAVER_MAP_CLIENT_ID)
@@ -174,20 +179,12 @@
 
 > 사용자가 "앱 기능 다 됐어", "출시 준비", "배포 전 체크" 등 완성/오픈 관련 언급을 하면 아래 항목을 **먼저 상기시킬 것**.
 
-### 다음 사이클 확정 — JWT stateless 리팩터 (2026-07-21 사용자 지시)
-- **트리거**: 장소 승인 워크플로 사이클 완료 직후 **즉시** 착수 (사용자 명시 지시)
-- 현재 문제: `JwtAuthenticationFilter.doFilterInternal` → `CustomUserDetailsService.loadUserByUsername`이 매 인증 요청마다 `userRepository.findByIdAndDeletedAtIsNull()` DB 조회. JWT stateless 이점 상실.
-- 방향:
-  1. `JwtTokenProvider`에 role claim 추가 (`.claim("role", user.getRole())`) — 액세스 토큰 발급 시
-  2. `JwtTokenProvider.extractRole` 추가
-  3. `JwtAuthenticationFilter`가 DB 대신 토큰 claim에서 userId + role 직접 추출, `CustomUserDetails` 생성 시 DB 조회 스킵
-  4. `CustomUserDetailsService`는 최초 로그인·Refresh 시에만 호출 (여전히 유지, 로그인 흐름에서 필요)
-  5. role 변경/유저 삭제 반영 지연 → Refresh 시점에 반영. 즉시 강제 로그아웃 필요하면 Redis 블랙리스트 (별개 스코프)
-- 파급 영향:
-  - 모든 소셜 로그인 provider (Kakao/Google/Apple/Naver)의 액세스 토큰 발급 지점 UserEntity role 참조 필요
-  - Refresh token 재발급 시에도 role claim 재삽입
-  - 앱은 여전히 UserResponse.role만 참조 (변경 없음)
-- 인수인계 파일: `claude-memory.md` 이 섹션 + `guides/place-approval-backend.md`의 "JwtTokenProvider 수정 불필요" 노트 뒤집기
+### JWT stateless 리팩터 (2026-07-28 완료, brd_be 커밋 `04ccd2d`)
+- `JwtTokenProvider.generateAccessToken(UUID, UserRole)` + `extractUserRole` — role claim 추가
+- `JwtAuthenticationFilter`가 DB 대신 토큰 claim에서 userId + role 직접 추출 → 매 요청 users SELECT 0회
+- refresh 시에만 `userRepository.findByIdAndDeletedAtIsNull(userId)` 1회 조회 → 최신 role 반영 + soft-deleted 유저 자동 차단
+- 5개 발급 지점(guest/signup/social/email/refresh) 모두 role 전달
+- role 변경/유저 삭제 반영 지연 최대 1시간(access 만료 주기). 즉시 강제 로그아웃 필요 시 Redis 블랙리스트 (별개 스코프, 후속)
 
 ### 보안 — Place 좌표 수정 엔드포인트 무인증 (2026-07-14 기록)
 - `PATCH /api/v1/places/{id}` — `SecurityConfig.PERMIT_ALL_ENDPOINTS`의 `/api/v1/places/**` 뒤에 있어 **누구나 어떤 place의 좌표든 수정 가능**.

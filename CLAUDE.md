@@ -603,19 +603,39 @@ com.bikeridediary
       - 뱅킹 세션 서버 백업은 별도 스코프 (Phase 3 목록에 있으나 이번 사이클 제외)
       - 실기기 오프라인 시나리오 (비행기 모드 → 로컬 저장 → 온라인 복구 자동 sync) 검증 남음 — 로컬 개발 환경에선 정상 동작 확인됨
 
+34. 게스트 로그인 유도 + 로딩 오버레이 리팩터 + FuelingServiceTest 가이드 + 라이딩 코스 2차 pm 게이트 (2026-07-31)
+    - **1. `/api/v1/places/**` 인증 확인**: 이미 처리 완료 상태 확인. `SecurityConfig`가 places를 `GET_PERMIT_ALL_ENDPOINTS`에만 두고 POST/PATCH/DELETE는 change-request 워크플로 + `@PreAuthorize`로 걸어둠. 별도 조치 불필요.
+    - **2. 앱 게스트 로그인 유도 다이얼로그** (brd_app):
+      - 신규 `lib/features/auth/presentation/require_auth.dart` — `Future<bool> requireAuth(BuildContext, WidgetRef)`. `isLocalGuest`면 Cupertino 다이얼로그(취소/로그인) 띄우고 확인 시 `logout()` → 라우터가 `/login`으로 redirect. 서버 인증이면 true 즉시 반환
+      - `course_map_screen.dart` 3개 진입점에 가드: `_openAddPlace()`(장소 제보), 정보 수정 버튼, 좌표 보정 버튼. 다이얼로그 후 `rootCtx.mounted` 체크로 async gap 안전 처리
+      - `local_place_detail_screen.dart` `_submitRequest()`에도 가드 추가
+      - flutter analyze 클린 (course_map_screen에 pre-existing warning 2건은 이번 변경 아님)
+    - **3. FuelingServiceTest 복구 가이드**: `brd_claude/guides/fueling-service-test.md` — 5개 변경점(페이징 메서드 교체, `getFuelings` 시그니처 Pageable+PageResponse, `updateBikeFuelEfficiency` 신규 스텁, `UserRepository` mock, `FuelingStatsResponse` 6필드) 체크리스트. 사용자 직접 수정 예정
+    - **4. 로딩 오버레이 stuck 버그 fix** (brd_app):
+      - 증상: `로딩 중...` 오버레이가 걸려 안 사라지는데 FAB/하단탭 터치는 됨. body만 덮고 outer Stack의 FAB이 위에 얹혀서 정상적으로 히트 통과(오버레이 자체는 body 내부 히트를 정상 차단). 근본 원인은 int 카운터의 불균형 leak
+      - 조치: `loadingCountProvider` (int 카운터) → `pendingRequestsProvider` (`Set<int>` of 요청 ID)로 교체. 각 요청은 `options.extra['_loadingId']`에 고유 ID 저장. Set은 double-add/remove 자동 idempotent라 leak 원천 차단
+      - `beginLoading(ref, id, url)` / `endLoading(ref, id, url, {ok})` 헬퍼. `kDebugMode`에서 `[Loading] +N /path (pending=M)` 로그 → stuck 재현 시 어떤 요청이 걸렸는지 즉시 추적 가능
+      - 변경: `lib/core/network/loading_state.dart`, `lib/core/network/dio_client.dart`
+    - **5. 라이딩 코스 2차 스코프 pm 게이트 1** (brd_claude 계획 문서):
+      - `plans/riding-course-phase2.md` 생성 (pm 서브에이전트가 담당)
+      - 스코프 In: Naver Directions 15 통합, waypoint 지도 편집(최대 15), 코스 생성/편집/미리보기, 복사편집 실제 구현, 거리 자동 계산
+      - 스코프 Out: GPX, GPS 자동기록, 난이도/고도 분석, 소요시간 UI, 오프라인 편집
+      - 사용자 결정 대기 중(D1~D7): path 저장 형식(A JSON), 요약 필드(A distance만), waypoint place 연동(A 둘 다), 순서 재배열(A 드래그), Directions 호출 시점(B 미리보기 버튼), 복사편집(A 이번 포함), Directions 실패(A 저장 차단). 사용자가 "다 추천대로" 하면 게이트 2(publisher+dba+backend-dev 병렬)로 진행
+      - 관련: `courses.path TEXT` 컬럼 이미 있음(JSON 저장 재사용 가능), `NaverMapsProperties.direction15Url` 이미 세팅됨
+
 ### 다음 단계
 
-- **라이딩 코스 2차 스코프**: 코스 생성/편집 UI (Naver Directions 15 통합, waypoint 지도 편집)
-- `findFavoritedByOthers` JPQL의 `isPublic = TRUE` 조건 제거 (즐겨찾기 후 비공개 전환 시 MY탭 누락 대응)
-- place 중복 체크 좌표 근접(100m Haversine) 조합 도입 여부
-- **주유소 지도 통합**: place UI 토글의 주유 카테고리를 기존 station API에 연결 (또는 place로 흡수)
-- **카카오맵/네이버 지도 딥링크 버튼**: 하단 시트에 url_launcher로 추가 (TODO 표시됨)
-- **place_categories 시드 확인**: schema.sql/data.sql에 없음 — DB에 직접 seed된 상태로 추정. OTHER row가 실제 존재하는지 확인 필요 (없으면 앱 '기타' 저장 시 FK 위반)
-- **SecurityConfig의 /api/v1/places/** 정리**: 지금 permitAll이라 POST/PATCH도 무인증. 인증 정리 필요 (fuelings/maintenances처럼 permitAll 제거)
-- **뱅킹 세션 서버 백업** (Phase 3 잔여): 로컬 SQLite만 저장 중, 서버 upload 미구현
-- **`FuelingServiceTest` 복구**: 삭제된 repository 메서드 참조 정리
-- **무한 스크롤 UI 확장**: fueling/maintenance/course/POI 화면들 (첫 페이지 20건만 표시 중)
-- Flutter 앱 실기기 오프라인 게스트 시나리오 검증 (비행기 모드 → 가입없이 시작하기 → 뱅킹)
+- **라이딩 코스 2차 스코프 pm 게이트 1 승인 대기**: `plans/riding-course-phase2.md`의 D1~D7 사용자 결정 → 게이트 2(publisher 목업 + dba 스키마 + backend-dev 가이드 병렬)로 진행
+- **`FuelingServiceTest` 복구 반영**: 가이드는 `guides/fueling-service-test.md`에 정리됨. 사용자가 직접 반영
+- **로딩 오버레이 leak stuck 재발 시 로그 확인**: `[Loading] +N <path>`만 있고 매칭 `-N` 없는 요청 URL이 진짜 leak 소스
+- **주요 미결/후속** (이전 사이클에서 이월):
+  - `findFavoritedByOthers` JPQL의 `isPublic = TRUE` 조건 제거 (즐겨찾기 후 비공개 전환 시 MY탭 누락)
+  - place 중복 체크 좌표 근접(100m Haversine) 조합 도입 여부
+  - 주유소 지도 통합 (place UI 주유 카테고리를 기존 station API에 연결 or place로 흡수)
+  - 카카오맵/네이버 지도 딥링크 버튼 (url_launcher)
+  - 뱅킹 세션 서버 백업 (Phase 3 잔여)
+  - 무한 스크롤 UI 확장 (fueling/maintenance/course/POI, 첫 페이지 20건만 표시 중)
+  - 실기기 오프라인 게스트 시나리오 검증 (비행기 모드 → 가입없이 시작하기 → 뱅킹)
 
 ---
 

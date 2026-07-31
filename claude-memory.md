@@ -2,7 +2,7 @@
 
 > 이 파일은 `CLAUDE.md`에서 `@claude-memory.md`로 import되어 세션 시작 시 자동 로드됩니다.
 > Claude 홈(`~/.claude`)의 메모리는 git 공유가 안 되므로, 정본은 이 파일에 둡니다.
-> 다른 환경에서도 git pull 하면 그대로 읽힙니다. 최종 갱신: 2026-07-28.
+> 다른 환경에서도 git pull 하면 그대로 읽힙니다. 최종 갱신: 2026-07-31.
 
 ---
 
@@ -186,12 +186,16 @@
 - 5개 발급 지점(guest/signup/social/email/refresh) 모두 role 전달
 - role 변경/유저 삭제 반영 지연 최대 1시간(access 만료 주기). 즉시 강제 로그아웃 필요 시 Redis 블랙리스트 (별개 스코프, 후속)
 
-### 보안 — Place 좌표 수정 엔드포인트 무인증 (2026-07-14 기록)
-- `PATCH /api/v1/places/{id}` — `SecurityConfig.PERMIT_ALL_ENDPOINTS`의 `/api/v1/places/**` 뒤에 있어 **누구나 어떤 place의 좌표든 수정 가능**.
-- 대응 방향:
-  1. `/api/v1/places/**`를 `PERMIT_ALL_ENDPOINTS`에서 제거, `GET_PERMIT_ALL_ENDPOINTS`에 추가 → GET만 열고 PATCH는 authenticated
-  2. 관리자 role 도입 시 `@PreAuthorize("hasRole('ADMIN')")` 적용, 관리자 UI 별도 분리
-- 앱 사이드: 지금은 게스트도 좌표 보정 UI 접근 가능 → 인증 걸리면 로그인 유도 다이얼로그 추가 필요
+### 보안 — Place 좌표 수정 엔드포인트 무인증 (2026-07-31 완료)
+- 백엔드: `SecurityConfig`가 places를 `GET_PERMIT_ALL_ENDPOINTS`로 이동, POST/PATCH/DELETE는 change-request 워크플로 + `@PreAuthorize`. 실제로는 이전 사이클에서 이미 처리됐던 상태 확인.
+- 앱: `lib/features/auth/presentation/require_auth.dart` 헬퍼. 좌표 보정/정보 수정/장소 제보 진입점 4곳에서 `isLocalGuest` 체크 후 Cupertino 다이얼로그로 로그인 유도. 확인 시 `logout()` → 라우터가 `/login`으로 redirect.
+
+### 로딩 오버레이 Set-based 리팩터 (2026-07-31)
+- 증상: `로딩 중...` 오버레이가 걸린 채 안 사라지고, FAB/하단탭 터치는 여전히 됨(outer Stack의 FAB이 body 위에 얹혀서 정상). 근본 원인은 `loadingCountProvider` int 카운터의 unknown leak
+- 조치: `pendingRequestsProvider = StateProvider<Set<int>>` 도입. dio 인터셉터가 요청별 고유 `_loadingId`를 `options.extra`에 저장. `beginLoading` / `endLoading` 헬퍼로 Set add/remove. `isLoadingProvider = set.isNotEmpty`
+- 이점: Set은 double-add/remove 자동 idempotent → leak 원천 차단. `kDebugMode`에서 `[Loading] +N /path (pending=M)` 로그 → stuck 재현 시 매칭 `-N` 없는 URL이 leak 소스
+- 파일: `lib/core/network/loading_state.dart`, `lib/core/network/dio_client.dart`
+- 세션 leak 원인 자체는 미확정. 재현 시 로그로 핀포인트 → 별도 fix.
 
 ---
 

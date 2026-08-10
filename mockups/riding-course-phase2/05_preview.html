@@ -1,0 +1,255 @@
+<!--
+  화면명: 경로 미리보기 — Directions 결과 확인 후 저장 (D5=B)
+  요구사항: In-Scope #1 (Directions 통합), #5 (거리 자동계산 D2=A), #7 (D7=A 저장 확정)
+  결정: D1=A (JSON path 저장), D5=B (미리보기 버튼 클릭 → 여기서 폴리라인+거리 확인 → 저장), D7=A (저장 강조)
+  진입: 02_waypoint_list.html → "경로 미리보기" 버튼 클릭 후 Directions 성공 시 이동
+  "다시 편집" 클릭 시 02로 복귀 → 재편집하면 stale 상태 (저장 비활성, 미리보기 재실행 필요)
+-->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BRD 목업 — 저장 확정 (코스 확인)</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .screen {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* 정보 스크롤 패널 */
+    .info-panel {
+      flex: 1;
+      overflow-y: auto;
+      background: var(--color-bg);
+      padding: 12px 0;
+    }
+
+    .info-panel::-webkit-scrollbar { display: none; }
+
+    /* 거리 큰 수치 */
+    .distance-big {
+      font-size: 36px;
+      font-weight: 800;
+      color: var(--color-primary);
+      line-height: 1;
+    }
+
+    .distance-unit {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--color-text-secondary);
+      margin-left: 3px;
+    }
+
+    /* 성공 배너 */
+    .success-banner {
+      background: rgba(52,199,89,0.10);
+      border: 1px solid rgba(52,199,89,0.25);
+      border-radius: var(--r-md);
+      padding: 10px 14px;
+      margin: 0 12px 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: #1A6A32;
+      font-weight: 500;
+    }
+
+    /* 섹션 타이틀 */
+    .section-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--color-text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      padding: 0 16px;
+      margin-bottom: 8px;
+    }
+
+    /* Waypoint 요약 (읽기 전용) */
+    .wp-summary-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 16px;
+      position: relative;
+    }
+
+    .wp-summary-item:not(:last-child)::before {
+      content: '';
+      position: absolute;
+      left: 31px;
+      top: 42px;
+      width: 2px;
+      height: calc(100% - 18px);
+      background: var(--color-divider);
+    }
+  </style>
+</head>
+<body>
+<div class="phone-wrap">
+  <div class="phone">
+    <div class="phone-body">
+      <div class="screen">
+
+        <!-- AppBar -->
+        <div class="appbar">
+          <a href="02_waypoint_list.html" class="appbar-back">‹</a>
+          <div class="appbar-title">경로 미리보기</div>
+          <span class="online-only-chip">온라인 전용</span>
+        </div>
+
+        <!-- 지도 영역 (폴리라인 포함) -->
+        <div class="map-area" style="height: 320px;">
+          <div class="map-label">Naver Directions path 폴리라인</div>
+
+          <!-- 폴리라인 SVG -->
+          <svg viewBox="0 0 414 320" preserveAspectRatio="none"
+               style="position:absolute;inset:0;width:100%;height:100%;z-index:1;">
+            <!-- 코스 경로 (S자 와인딩) -->
+            <polyline
+              points="75,210  110,185  135,155  160,130  180,105  205,88  230,78  258,82  280,95  300,115  318,138  330,158  340,178  348,196  353,210"
+              fill="none"
+              stroke="#007AFF"
+              stroke-width="4"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              opacity="0.90"
+            />
+          </svg>
+
+          <!-- 출발 마커 -->
+          <div class="marker" style="left:18%; top:66%;">
+            <div class="marker-pin pin-start"></div>
+            <div class="marker-label">인제 합강리</div>
+          </div>
+
+          <!-- 경유 마커 1 (place) -->
+          <div class="marker" style="left:50%; top:24%;">
+            <div class="marker-pin pin-wp"></div>
+            <div class="marker-label">한계령 정상</div>
+          </div>
+
+          <!-- 목적 마커 -->
+          <div class="marker" style="left:85%; top:66%;">
+            <div class="marker-pin pin-dest"></div>
+            <div class="marker-label">양양</div>
+          </div>
+        </div>
+
+        <!-- 정보 패널 -->
+        <div class="info-panel">
+
+          <!-- 안내 배너: 미리보기 결과 (D5=B) -->
+          <div class="success-banner">
+            <span>✓</span>
+            미리보기 결과를 확인하세요. 경로가 맞으면 저장하세요.
+          </div>
+
+          <!-- 요약 카드: 이름 + 거리 + 경유지 -->
+          <div class="preview-card">
+            <div class="preview-card-row">
+              <div>
+                <div class="preview-label">코스명</div>
+                <div style="font-size:15px; font-weight:700; color:var(--color-text-primary); margin-top:2px;">한계령 와인딩 코스</div>
+              </div>
+              <div style="text-align:right;">
+                <div class="preview-label">공개 여부</div>
+                <div style="font-size:14px; font-weight:600; color:#34C759; margin-top:2px;">공개</div>
+              </div>
+            </div>
+            <div style="height:1px; background:var(--color-divider); margin: 8px 0;"></div>
+            <div class="preview-card-row">
+              <div>
+                <div class="preview-label">총 거리</div>
+                <div>
+                  <span class="distance-big">42.5</span>
+                  <span class="distance-unit">km</span>
+                </div>
+              </div>
+              <div style="text-align:right;">
+                <div class="preview-label">경유지</div>
+                <div style="font-size:18px; font-weight:700; color:var(--color-text-primary);">3 지점</div>
+              </div>
+            </div>
+            <div style="height:1px; background:var(--color-divider); margin: 8px 0;"></div>
+            <div class="preview-card-row">
+              <span style="font-size:12px; color:var(--color-text-secondary);">
+                D1=A: path 좌표 JSON으로 저장 (course.path TEXT) · D2=A: distance_meters만 저장
+              </span>
+            </div>
+          </div>
+
+          <!-- 경유지 요약 (읽기 전용) -->
+          <div style="margin-top: 4px;">
+            <div class="section-title">경유 경로</div>
+
+            <div class="wp-summary-item">
+              <div class="wp-dot start" style="width:30px;height:30px;font-size:12px;flex-shrink:0;">S</div>
+              <div>
+                <div style="font-size:13px; color:var(--color-text-secondary);">출발지</div>
+                <div style="font-size:14px; font-weight:600; color:var(--color-text-primary);">강원 인제군 인제읍 합강리</div>
+              </div>
+            </div>
+
+            <div class="wp-summary-item">
+              <div class="wp-dot waypoint" style="width:30px;height:30px;font-size:12px;flex-shrink:0;">1</div>
+              <div>
+                <div style="font-size:13px; color:var(--color-text-secondary);">경유지 1</div>
+                <div style="font-size:14px; font-weight:600; color:var(--color-text-primary);">한계령 정상 (1,004m)</div>
+                <span class="cat-badge sight" style="margin-top:2px;">명소</span>
+              </div>
+            </div>
+
+            <div class="wp-summary-item">
+              <div class="wp-dot destination" style="width:30px;height:30px;font-size:12px;flex-shrink:0;">E</div>
+              <div>
+                <div style="font-size:13px; color:var(--color-text-secondary);">목적지</div>
+                <div style="font-size:14px; font-weight:600; color:var(--color-text-primary);">강원 양양군 양양읍 남문리</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- 하단 액션 바 (D5=B): 다시 편집 → 02로 복귀(stale), 저장 활성 -->
+        <!-- 주의: "다시 편집" 클릭 시 02 화면에서 waypointsChangedSincePreview=true 처리 → 미리보기 재실행 필요 -->
+        <div class="action-bar">
+          <a href="02_waypoint_list.html" class="btn btn-outline" style="text-decoration:none; color:var(--color-primary);">
+            다시 편집
+          </a>
+          <button class="btn btn-primary" style="flex:2; font-size:16px;"
+            onclick="showToast('코스가 저장되었습니다!'); setTimeout(()=>location.href='index.html',1200)"
+          >
+            저장
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 프로토타입 네비게이션 -->
+    <div class="proto-nav">
+      <a href="02_waypoint_list.html">← 다시 편집</a>
+      <span class="proto-screen-label">05 경로 미리보기</span>
+      <a href="06_copy_edit.html">복사 편집 →</a>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script>
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+</script>
+</body>
+</html>

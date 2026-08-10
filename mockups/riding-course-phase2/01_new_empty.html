@@ -1,0 +1,120 @@
+<!--
+  화면명: 신규 코스 생성 — 빈 상태
+  요구사항: In-Scope #1 (코스 생성 진입), #2 (waypoint 0개 상태), #7 (저장/미리보기 비활성)
+  결정: D5=B (미리보기 버튼 클릭 시에만 Directions 호출), D7=A (미리보기 성공 전 저장 차단)
+  진입: 라이딩 코스 홈 → FAB(+) 클릭
+-->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BRD 목업 — 신규 코스 생성 (빈 상태)</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .screen {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body>
+<div class="phone-wrap">
+  <div class="phone">
+    <div class="phone-body">
+      <div class="screen">
+
+        <!-- AppBar -->
+        <div class="appbar">
+          <a href="index.html" class="appbar-back">✕</a>
+          <div class="appbar-title">새 라이딩 코스</div>
+          <!-- 저장: 비활성 (waypoint 미입력) -->
+          <button class="appbar-action disabled" disabled>저장</button>
+        </div>
+
+        <!-- 지도 영역 (빈 상태) -->
+        <div class="map-area tall">
+          <div class="map-label">flutter_naver_map 영역 (목업 placeholder)</div>
+          <!-- 빈 상태 안내 (지도 중앙) -->
+          <div style="
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            z-index: 2;
+          ">
+            <div style="font-size: 48px; opacity: 0.25;">📍</div>
+            <div style="
+              font-size: 14px;
+              font-weight: 600;
+              color: #636366;
+              background: rgba(255,255,255,0.85);
+              padding: 8px 18px;
+              border-radius: 20px;
+            ">출발지를 추가하세요</div>
+          </div>
+        </div>
+
+        <!-- 하단 시트 (빈 상태) -->
+        <div class="bottom-sheet" style="flex: 1; display: flex; flex-direction: column;">
+          <div class="bottom-sheet-handle"></div>
+
+          <div class="bottom-sheet-header">
+            <span class="bottom-sheet-title">경유지</span>
+            <span class="bottom-sheet-count">0 / 15</span>
+          </div>
+
+          <!-- 빈 상태 안내 -->
+          <div class="empty-guide" style="flex: 1;">
+            <div class="empty-guide-icon">🗺️</div>
+            <div class="empty-guide-title">경유지가 없습니다</div>
+            <div class="empty-guide-desc">
+              아래 버튼을 눌러 출발지를 추가하거나<br>
+              지도를 길게 눌러 위치를 직접 지정하세요
+            </div>
+          </div>
+
+          <!-- 경유지 추가 버튼 -->
+          <button class="add-wp-btn" onclick="showToast('장소 선택 시트가 열립니다 (화면 03 참고)')">
+            + 출발지 추가
+          </button>
+
+          <!-- 하단 액션 바 (저장/미리보기 둘 다 비활성) -->
+          <div class="action-bar">
+            <button class="btn btn-secondary disabled" disabled>
+              🔍 경로 미리보기
+            </button>
+            <button class="btn btn-primary disabled" disabled>
+              저장
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 프로토타입 네비게이션 -->
+    <div class="proto-nav">
+      <a href="index.html">← 목록</a>
+      <span class="proto-screen-label">01 신규 생성 (빈 상태)</span>
+      <a href="02_waypoint_list.html">경유지 추가 후 →</a>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script>
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+</script>
+</body>
+</html>

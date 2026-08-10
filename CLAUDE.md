@@ -234,6 +234,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - Entity 클래스명: 반드시 "Entity" suffix 붙임 (User → UserEntity, Bike → BikeEntity)
 - Entity 필드 주석: 모든 필드에 한글 주석으로 설명 작성 (예: `// 제조사명 (MVP: 텍스트 직접 입력)`)
 - JPA dirty checking 활용: `@Transactional` 내에서 update/delete 시 `repository.save()` 호출하지 않음
+- `@Transactional` 컨벤션 (2026-08-05 확정): **클래스 레벨 어노테이션 금지, 메서드 레벨에만 명시**. 조회 메서드는 `@Transactional(readOnly = true)`, 쓰기 메서드는 `@Transactional`, DB 접근 없는 메서드(외부 API 호출뿐)는 어노테이션 생략. 이유: 각 메서드의 트랜잭션 성격이 어노테이션으로 즉시 보임 + `Propagation.NEVER` 같은 트릭 불필요 + 새 메서드 추가 시 의식적으로 결정하도록 강제
 
 ```
 com.bikeridediary
@@ -636,6 +637,7 @@ com.bikeridediary
   - 뱅킹 세션 서버 백업 (Phase 3 잔여)
   - 무한 스크롤 UI 확장 (fueling/maintenance/course/POI, 첫 페이지 20건만 표시 중)
   - 실기기 오프라인 게스트 시나리오 검증 (비행기 모드 → 가입없이 시작하기 → 뱅킹)
+  - **외부 API 호출 로깅 (모든 기능 완성 후 착수 예정, 2026-08-04 결정)**: Naver Directions/Geocoding/Search, Kakao Local, Opinet, OpenWeather 등 외부 API 호출 시 어떤 사용자가·언제·어떤 파라미터로 호출했는지 DB 기록. 목적: 사용량 모니터링(Naver 무료 60,000/월 등 한도 추적), 이상 사용/오남용 탐지, 유저별 차단 근거. `api_call_logs` 테이블 신규 or AOP 기반 인터셉터. **지금 착수 금지 — 후속 사이클에서**
 
 ---
 

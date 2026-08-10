@@ -1,0 +1,210 @@
+<!--
+  화면명: 코스 편집 — waypoint 3개 추가 상태 (D5=B: 미리보기 버튼 방식)
+  요구사항: In-Scope #2 (waypoint 지도 편집 UI), #4 (순서 재배열 D4=A 드래그), #5 (거리 자동계산 D2=A)
+  결정: D3=A (place+임의지점 둘 다), D4=A (드래그 재배열), D5=B (미리보기 버튼 클릭 시에만 Directions 호출)
+  참고: 미리보기 버튼 (START+GOAL 있을 때 활성) → 05_preview.html / 경유지 추가 → 03_place_selection_sheet.html
+        저장 버튼은 미리보기 성공 후에만 활성 (현재 화면에서는 비활성)
+-->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BRD 목업 — 코스 편집 (waypoint 3개)</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .screen {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* 드래그 중 시각 효과 */
+    .wp-edit-item.dragging {
+      opacity: 0.5;
+      background: rgba(0,122,255,0.04);
+    }
+
+    /* 코스명 입력 */
+    .name-row {
+      padding: 10px 16px 6px;
+      border-bottom: 1px solid var(--color-divider);
+    }
+
+    .name-input {
+      width: 100%;
+      border: none;
+      outline: none;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--color-text-primary);
+      background: transparent;
+      font-family: inherit;
+    }
+
+    .name-input::placeholder { color: var(--color-accent-gray); font-weight: 400; }
+  </style>
+</head>
+<body>
+<div class="phone-wrap">
+  <div class="phone">
+    <div class="phone-body">
+      <div class="screen">
+
+        <!-- AppBar -->
+        <div class="appbar">
+          <a href="01_new_empty.html" class="appbar-back">‹</a>
+          <div class="appbar-title">코스 편집</div>
+          <!-- 저장: D5=B → 미리보기 성공 후에만 활성. 현재는 비활성 -->
+          <span class="appbar-action" style="color:#C7C7CC; pointer-events:none;">저장</span>
+        </div>
+
+        <!-- 지도 영역 (D5=B: 미리보기 전 → 폴리라인 없음, 마커만) -->
+        <div class="map-area" style="height: 280px; position: relative;">
+          <div class="map-label">waypoint 마커 표시 · 경로는 미리보기 후 확인</div>
+
+          <!-- 폴리라인 없음: 미리보기 버튼 클릭 후 05_preview에서 확인 -->
+
+          <!-- 마커: 출발지 -->
+          <div class="marker" style="left:18%; top:66%;">
+            <div class="marker-pin pin-start"></div>
+            <div class="marker-label">출발</div>
+          </div>
+
+          <!-- 마커: 경유지 1 (place 연결) -->
+          <div class="marker" style="left:50%; top:42%;">
+            <div class="marker-pin pin-wp"></div>
+            <div class="marker-label">한계령 정상</div>
+          </div>
+
+          <!-- 마커: 목적지 -->
+          <div class="marker" style="left:84%; top:66%;">
+            <div class="marker-pin pin-dest"></div>
+            <div class="marker-label">도착</div>
+          </div>
+
+          <!-- 지도 편집 모드 안내 -->
+          <div style="
+            position: absolute;
+            bottom: 10px;
+            right: 12px;
+            background: rgba(0,0,0,0.50);
+            color: #fff;
+            font-size: 11px;
+            padding: 5px 10px;
+            border-radius: 8px;
+            z-index: 3;
+          ">지도 길게 누르기 → 임의 지점 추가</div>
+        </div>
+
+        <!-- 하단 시트 -->
+        <div class="bottom-sheet" style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+          <div class="bottom-sheet-handle"></div>
+
+          <!-- 코스명 입력 -->
+          <div class="name-row">
+            <input class="name-input" type="text" placeholder="코스 이름을 입력하세요" value="한계령 와인딩 코스">
+          </div>
+
+          <!-- 헤더: 경유지 개수 -->
+          <div class="bottom-sheet-header" style="padding-top: 10px;">
+            <span class="bottom-sheet-title">경유지 <span style="font-size:12px; font-weight:400; color:var(--color-text-secondary);">드래그로 순서 변경</span></span>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="bottom-sheet-count">3 / 15</span>
+            </div>
+          </div>
+
+          <!-- Waypoint 리스트 (드래그 재배열 D4=A) -->
+          <div class="wp-edit-list" style="flex: 1;">
+
+            <!-- 출발지 (드래그 핸들 있지만 START는 항상 첫번째 관례) -->
+            <div class="wp-edit-item">
+              <span class="drag-handle" title="드래그로 순서 변경">⠿</span>
+              <div class="wp-dot start">S</div>
+              <div class="wp-edit-info">
+                <div class="wp-edit-label">출발지</div>
+                <div class="wp-edit-name">강원 인제군 인제읍 합강리</div>
+                <div class="wp-edit-sub">
+                  <span class="cat-badge custom">임의 지점</span>
+                </div>
+              </div>
+              <button class="delete-btn" onclick="showToast('출발지를 삭제합니다')">−</button>
+            </div>
+
+            <!-- 경유지 1 (place 연결) -->
+            <div class="wp-edit-item">
+              <span class="drag-handle">⠿</span>
+              <div class="wp-dot waypoint">1</div>
+              <div class="wp-edit-info">
+                <div class="wp-edit-label">경유지 1</div>
+                <div class="wp-edit-name">한계령 정상 (1,004m)</div>
+                <div class="wp-edit-sub">
+                  <span class="cat-badge sight">명소</span>
+                </div>
+              </div>
+              <button class="delete-btn" onclick="showToast('경유지 1을 삭제합니다')">−</button>
+            </div>
+
+            <!-- 목적지 -->
+            <div class="wp-edit-item">
+              <span class="drag-handle">⠿</span>
+              <div class="wp-dot destination">E</div>
+              <div class="wp-edit-info">
+                <div class="wp-edit-label">목적지</div>
+                <div class="wp-edit-name">강원 양양군 양양읍 남문리</div>
+                <div class="wp-edit-sub">
+                  <span class="cat-badge custom">임의 지점</span>
+                </div>
+              </div>
+              <button class="delete-btn" onclick="showToast('목적지를 삭제합니다')">−</button>
+            </div>
+
+          </div>
+
+          <!-- 경유지 추가 버튼 -->
+          <a href="03_place_selection_sheet.html" class="add-wp-btn" style="text-decoration:none; margin-top:0;">
+            + 경유지 추가 (3 / 15)
+          </a>
+
+          <!-- 공개/비공개 토글 -->
+          <div class="toggle-row">
+            <span class="toggle-label">공개 코스</span>
+            <div class="toggle-switch" onclick="this.classList.toggle('off')"></div>
+          </div>
+
+          <!-- 액션 바: D5=B → 미리보기 버튼 (START+GOAL 있을 때 활성) + 저장 (미리보기 성공 전 비활성) -->
+          <div class="action-bar" style="gap: 8px;">
+            <a href="05_preview.html" class="btn btn-primary" style="text-decoration:none; flex:2;">
+              🔍 경로 미리보기
+            </a>
+            <button class="btn" style="flex:1; background:#F2F2F7; color:#C7C7CC; border:none; font-size:15px; font-weight:600; border-radius:10px; cursor:not-allowed;" disabled>
+              저장
+            </button>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 프로토타입 네비게이션 -->
+    <div class="proto-nav">
+      <a href="01_new_empty.html">← 빈 상태</a>
+      <span class="proto-screen-label">02 waypoint 편집</span>
+      <a href="03_place_selection_sheet.html">장소 선택 →</a>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script>
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,152 @@
+<!--
+  화면명: 지도 편집 모드 — 임의 지점 직접 지정
+  요구사항: In-Scope #2 waypoint 지정 — D3=A (임의 지점 지도 핀 찍기)
+  진입: 03_place_selection_sheet.html → "지도에서 직접 지정" 선택
+-->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BRD 목업 — 지도 편집 모드 (임의 지점)</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .screen {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* 전체 화면 지도 */
+    .full-map {
+      flex: 1;
+      position: relative;
+      background: #E5E5EA;
+      overflow: hidden;
+    }
+
+    .full-map::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(150,150,170,0.15) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(150,150,170,0.15) 1px, transparent 1px);
+      background-size: 40px 40px;
+      z-index: 0;
+    }
+
+    /* 현재 선택된 좌표 표시 */
+    .coord-badge {
+      position: absolute;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.65);
+      color: #fff;
+      font-size: 12px;
+      font-family: 'Courier New', monospace;
+      padding: 6px 14px;
+      border-radius: var(--r-full);
+      z-index: 5;
+      white-space: nowrap;
+    }
+
+    /* 기존 마커 (흐릿하게) */
+    .marker.faint { opacity: 0.4; }
+  </style>
+</head>
+<body>
+<div class="phone-wrap">
+  <div class="phone">
+    <div class="phone-body">
+      <div class="screen">
+
+        <!-- AppBar -->
+        <div class="appbar">
+          <a href="03_place_selection_sheet.html" class="appbar-back">✕</a>
+          <div class="appbar-title">위치 지정</div>
+          <!-- 취소 텍스트 버튼 -->
+          <a href="02_waypoint_list.html" class="appbar-action" style="text-decoration:none; color:var(--color-danger);">취소</a>
+        </div>
+
+        <!-- 지도 안내 배너 -->
+        <div style="position:relative; flex: 1; display:flex; flex-direction:column;">
+
+          <!-- 전체 화면 지도 -->
+          <div class="full-map">
+
+            <!-- 상단 안내 배너 -->
+            <div class="map-guide-banner">
+              지도를 이동해 원하는 위치에 핀을 맞추세요
+            </div>
+
+            <!-- 기존 마커들 (반투명) -->
+            <div class="marker faint" style="left:18%; top:62%;">
+              <div class="marker-pin pin-start"></div>
+            </div>
+            <div class="marker faint" style="left:42%; top:42%;">
+              <div class="marker-pin pin-wp"></div>
+            </div>
+            <div class="marker faint" style="left:78%; top:55%;">
+              <div class="marker-pin pin-dest"></div>
+            </div>
+
+            <!-- 크로스헤어 (중앙 고정) -->
+            <div class="crosshair" style="top:48%; left:50%;">
+              <div class="crosshair-h"></div>
+              <div class="crosshair-v"></div>
+              <div class="crosshair-dot"></div>
+            </div>
+
+            <!-- 현재 좌표 표시 -->
+            <div class="coord-badge">37.9782° N, 128.4317° E</div>
+          </div>
+
+        </div>
+
+        <!-- 하단 확정 버튼 -->
+        <div class="action-bar" style="flex-direction: column; gap: 6px; padding: 14px 16px;">
+          <div style="
+            font-size: 13px;
+            color: var(--color-text-secondary);
+            text-align: center;
+            margin-bottom: 2px;
+          ">선택된 위치: <strong style="color:var(--color-text-primary);">강원 인제군 북면 한계리</strong></div>
+          <div style="display:flex; gap:10px; width:100%;">
+            <a href="02_waypoint_list.html" class="btn btn-secondary" style="text-decoration:none; color:var(--color-primary);">
+              취소
+            </a>
+            <button class="btn btn-primary"
+              onclick="showToast('이 위치를 경유지로 추가했습니다'); setTimeout(()=>location.href=\'02_waypoint_list.html\',900)"
+              style="flex:2;"
+            >
+              이 위치에 추가
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 프로토타입 네비게이션 -->
+    <div class="proto-nav">
+      <a href="03_place_selection_sheet.html">← 장소 선택</a>
+      <span class="proto-screen-label">04 지도 직접 지정</span>
+      <a href="05_preview.html">미리보기 →</a>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script>
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+</script>
+</body>
+</html>

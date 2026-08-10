@@ -1,0 +1,235 @@
+<!--
+  화면명: 장소 선택 시트 (하단 슬라이드업)
+  요구사항: In-Scope #2 waypoint 지정 — D3=A (place + 임의 지점 둘 다 지원)
+  참고: 기존 CourseMapScreen의 PlaceSelectionSheet 패턴 확장
+  진입: 02_waypoint_list.html에서 "+ 경유지 추가" 버튼 클릭
+-->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BRD 목업 — 장소 선택 시트</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .screen {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* 배경: 지도 + 편집 중인 waypoints */
+    .bg-map {
+      flex: 1;
+      position: relative;
+      background: #E5E5EA;
+      overflow: hidden;
+    }
+
+    .bg-map::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(150,150,170,0.15) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(150,150,170,0.15) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+  </style>
+</head>
+<body>
+<div class="phone-wrap">
+  <div class="phone">
+    <div class="phone-body">
+      <div class="screen">
+
+        <!-- AppBar (뒤에 흐린 지도 화면) -->
+        <div class="appbar">
+          <a href="02_waypoint_list.html" class="appbar-back">‹</a>
+          <div class="appbar-title">경유지 추가</div>
+        </div>
+
+        <!-- 배경 지도 (흐릿하게) -->
+        <div class="bg-map" style="opacity: 0.6;">
+          <!-- 기존 마커들 -->
+          <div class="marker" style="left:18%; top:55%;">
+            <div class="marker-pin pin-start"></div>
+            <div class="marker-label">출발</div>
+          </div>
+          <div class="marker" style="left:42%; top:35%;">
+            <div class="marker-pin pin-wp"></div>
+            <div class="marker-label">1</div>
+          </div>
+          <div class="marker" style="left:78%; top:50%;">
+            <div class="marker-pin pin-dest"></div>
+            <div class="marker-label">도착</div>
+          </div>
+        </div>
+
+        <!-- Place 선택 시트 (하단 슬라이드업 오버레이) -->
+        <div style="
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          top: 56px;
+          display: flex;
+          flex-direction: column;
+          z-index: 20;
+        ">
+          <!-- 반투명 배경 (탭하면 닫힘) -->
+          <div style="
+            flex: 0 0 60px;
+            background: rgba(0,0,0,0.3);
+            cursor: pointer;
+          " onclick="window.location.href='02_waypoint_list.html'"></div>
+
+          <!-- 시트 본체 -->
+          <div style="
+            flex: 1;
+            background: var(--color-card);
+            border-radius: 20px 20px 0 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+          ">
+            <!-- 핸들 -->
+            <div style="display:flex; justify-content:center; padding: 12px 0 8px;">
+              <div style="width:36px; height:4px; background:var(--color-divider); border-radius:99px;"></div>
+            </div>
+
+            <!-- 제목 -->
+            <div style="padding: 0 16px 10px;">
+              <div style="font-size:17px; font-weight:700; color:var(--color-text-primary); margin-bottom:12px;">
+                어디에 추가할까요?
+              </div>
+
+              <!-- 검색창 -->
+              <div class="search-bar">
+                <span style="font-size:16px; color:var(--color-text-secondary);">🔍</span>
+                <input class="search-input" type="text" placeholder="장소 이름으로 검색" readonly>
+              </div>
+
+              <!-- 카테고리 필터 chips -->
+              <div class="chip-scroll">
+                <div class="chip active" onclick="toggleChip(this)">전체</div>
+                <div class="chip" onclick="toggleChip(this)">🏔 명소</div>
+                <div class="chip" onclick="toggleChip(this)">☕ 카페</div>
+                <div class="chip" onclick="toggleChip(this)">🔧 정비소</div>
+                <div class="chip" onclick="toggleChip(this)">⛽ 주유</div>
+                <div class="chip" onclick="toggleChip(this)">📌 기타</div>
+              </div>
+            </div>
+
+            <!-- 지도에서 직접 지정 옵션 (D3=A) -->
+            <a href="04_map_edit.html" class="direct-pick-row" style="text-decoration:none;">
+              <div class="direct-pick-icon">📍</div>
+              <div>
+                <div class="direct-pick-label">지도에서 직접 지정</div>
+                <div class="direct-pick-desc">지도를 이동해 원하는 위치를 핀으로 찍습니다</div>
+              </div>
+            </a>
+
+            <!-- 저장된 place 리스트 -->
+            <div class="place-list">
+
+              <div class="place-item" onclick="showToast('한계령 정상을 경유지에 추가했습니다'); setTimeout(()=>location.href='02_waypoint_list.html',900)">
+                <div class="place-item-icon" style="background:rgba(52,199,89,0.1);">🏔</div>
+                <div class="place-item-info">
+                  <div class="place-item-name">한계령 정상 (1,004m)</div>
+                  <div class="place-item-meta">
+                    <span class="cat-badge sight">명소</span>
+                  </div>
+                </div>
+                <div class="place-item-dist">2.4 km</div>
+              </div>
+
+              <div class="place-item" onclick="showToast('강원 라이더카페를 경유지에 추가했습니다'); setTimeout(()=>location.href='02_waypoint_list.html',900)">
+                <div class="place-item-icon" style="background:rgba(255,149,0,0.1);">☕</div>
+                <div class="place-item-info">
+                  <div class="place-item-name">강원 라이더카페 오색</div>
+                  <div class="place-item-meta">
+                    <span class="cat-badge cafe">카페</span>
+                  </div>
+                </div>
+                <div class="place-item-dist">5.1 km</div>
+              </div>
+
+              <div class="place-item" onclick="showToast('양양 바이크 정비소를 경유지에 추가했습니다'); setTimeout(()=>location.href='02_waypoint_list.html',900)">
+                <div class="place-item-icon" style="background:rgba(0,122,255,0.1);">🔧</div>
+                <div class="place-item-info">
+                  <div class="place-item-name">양양 바이크 정비소</div>
+                  <div class="place-item-meta">
+                    <span class="cat-badge center">정비소</span>
+                  </div>
+                </div>
+                <div class="place-item-dist">8.7 km</div>
+              </div>
+
+              <div class="place-item" onclick="showToast('인제 GS칼텍스를 경유지에 추가했습니다'); setTimeout(()=>location.href='02_waypoint_list.html',900)">
+                <div class="place-item-icon" style="background:rgba(255,59,48,0.1);">⛽</div>
+                <div class="place-item-info">
+                  <div class="place-item-name">인제 GS칼텍스</div>
+                  <div class="place-item-meta">
+                    <span class="cat-badge fuel">주유</span>
+                  </div>
+                </div>
+                <div class="place-item-dist">12.3 km</div>
+              </div>
+
+              <div class="place-item" onclick="showToast('오색 약수터를 경유지에 추가했습니다'); setTimeout(()=>location.href='02_waypoint_list.html',900)">
+                <div class="place-item-icon" style="background:rgba(52,199,89,0.1);">🏔</div>
+                <div class="place-item-info">
+                  <div class="place-item-name">오색 약수터</div>
+                  <div class="place-item-meta">
+                    <span class="cat-badge sight">명소</span>
+                  </div>
+                </div>
+                <div class="place-item-dist">15.0 km</div>
+              </div>
+
+              <div class="place-item" onclick="showToast('한계령 휴게소를 경유지에 추가했습니다'); setTimeout(()=>location.href='02_waypoint_list.html',900)">
+                <div class="place-item-icon" style="background:rgba(255,149,0,0.1);">☕</div>
+                <div class="place-item-info">
+                  <div class="place-item-name">한계령 휴게소 카페</div>
+                  <div class="place-item-meta">
+                    <span class="cat-badge cafe">카페</span>
+                  </div>
+                </div>
+                <div class="place-item-dist">18.2 km</div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 프로토타입 네비게이션 -->
+    <div class="proto-nav">
+      <a href="02_waypoint_list.html">← waypoint 편집</a>
+      <span class="proto-screen-label">03 장소 선택 시트</span>
+      <a href="04_map_edit.html">직접 지정 →</a>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script>
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function toggleChip(el) {
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+}
+</script>
+</body>
+</html>

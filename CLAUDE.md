@@ -624,9 +624,38 @@ com.bikeridediary
       - 사용자 결정 대기 중(D1~D7): path 저장 형식(A JSON), 요약 필드(A distance만), waypoint place 연동(A 둘 다), 순서 재배열(A 드래그), Directions 호출 시점(B 미리보기 버튼), 복사편집(A 이번 포함), Directions 실패(A 저장 차단). 사용자가 "다 추천대로" 하면 게이트 2(publisher+dba+backend-dev 병렬)로 진행
       - 관련: `courses.path TEXT` 컬럼 이미 있음(JSON 저장 재사용 가능), `NaverMapsProperties.direction15Url` 이미 세팅됨
 
+35. 라이딩 코스 2차 스코프 완결 + 서브에이전트 개선 사이클 (2026-08-12)
+    - **네이버 지도 딥링크 안내 다이얼로그 2단계** (brd_app `course_detail_screen.dart`):
+      - 1단계: "출발지를 내 위치로 변경하시겠습니까?" (예/아니오). 예 선택 시 geolocator로 현재 위치 획득, 권한/서비스/타임아웃 실패 시 스낵바로 사유 안내하고 원래 START 좌표로 fallback
+      - 2단계: "네이버 지도에서 이륜차 설정 필요 + 실제 경로 다를 수 있음" 안내 (확인/취소)
+      - 확인 시에만 `nmap://route/car?...` 실행. 예 선택했으면 `slat/slng/sname='내 위치'`로 override, 아니오면 코스 저장 START 사용
+      - `_buildQueryParams({Position? currentPosition})` 옵셔널 override 파라미터 추가
+    - **라이딩 코스 2차 스코프 게이트 2/3 완결** (2026-07-29 pm 게이트 1 → 2026-08-12 최종):
+      - D1~D7 전부 pm 추천안 채택 (D5는 사전 확정된 B 유지, D6 복사편집 이번 스코프 포함, D8 `regeneratePath` 플래그 채택)
+      - **핵심 발견**: 백엔드/앱 모두 대부분 이미 구현된 상태였음. 이번 사이클은 계획 문서화 + 리뷰 + 소수 fix로 축소
+      - 산출물 (`brd_claude/`):
+        - `plans/riding-course-phase2.md` (pm 서브에이전트)
+        - `guides/course-phase2-schema.md` (dba, 결론: DDL 변경 불필요. courses에 이미 bbox/description/count 컬럼 4종 ALTER 반영, END→GOAL 마이그레이션 schema.sql 라인 392~396에 포함)
+        - `guides/course-phase2-directions.md`, `guides/course-phase2-backend.md` (backend-dev, 기존 구현 검증 + 잠재 이슈)
+        - `mockups/riding-course-phase2/` 6개 HTML + index + style.css (publisher, 파일명 하이픈 스타일로 리네임됨)
+    - **백엔드 fix — sourceCourseId IDOR 취약점** (brd_be `CourseService.createCourse` 라인 195~200):
+      - 기존: `courseRepository.findById(sourceCourseId).ifPresent(src -> incrementCopyCount(src.getId()))` — 비공개 타인 코스여도 조용히 copy_count +1
+      - fix: `findByIdWithUser(sourceCourseId).orElseThrow(COURSE_NOT_FOUND)` → `validateDetailAccess(source, userId)` → `incrementCopyCount`. 원본 없으면 404, 비공개 타인 코스면 403
+      - `SecurityConfig.java` 죽은 주석/backtick 오타 정리 (사용자 직접)
+    - **앱 fix**:
+      - `course_repository.dart` 무의미한 try/catch(rethrow만) 3건 통째로 제거 (fetchMyCourses, fetchAllCourses, fetchCourse)
+      - flutter analyze 클린 확인 (경고 3건 → 0)
+    - **서브에이전트(QA/code-reviewer) 근본 개선** (`.claude/agents/qa.md`, `code-reviewer.md`):
+      - 문제 발견: QA가 "START/GOAL 드래그 시 role이 VIA로 재계산되는 버그" 리포트 → 실제로는 사용자가 코스 방향 뒤집기 위해 S/G도 드래그하는 게 의도된 설계. code-reviewer가 "삭제 액션에 Icons.thumb_up" 지적 → **실제 git baseline엔 정말 thumb_up이 있었음(진짜 버그). Claude가 "리뷰어 오지적"이라 잘못 반박했다가 git diff로 확인하고 정정.** 두 케이스 모두 팩트 체크 부족
+      - 조치: 두 agent 정의에 "리포트 전 필수 사전 조사 5단계"(plans/CLAUDE.md/memory/mockups/실제 코드 팩트 체크) + "가정 명시 필수"(단정 금지, 확인 못 한 사항은 "설계 의도 확인 필요" 섹션으로) + code-reviewer에 "과잉 방어 지적 금지"(CLAUDE.md 원칙 참조) 추가
+      - 실제 사례 명시 (2026-08-12 라이딩 코스 QA)로 반복 방지
+    - **메모리 신설** (`~/.claude/projects/.../memory/`):
+      - `MEMORY.md` (index)
+      - `feedback_subagent_review.md` — 서브에이전트 리포트를 팩트 체크 없이 사용자에게 전달 금지. 실제 코드/spec 확인 후 필터링해서 전달
+
 ### 다음 단계
 
-- **라이딩 코스 2차 스코프 pm 게이트 1 승인 대기**: `plans/riding-course-phase2.md`의 D1~D7 사용자 결정 → 게이트 2(publisher 목업 + dba 스키마 + backend-dev 가이드 병렬)로 진행
+- **라이딩 코스 2차 스코프 실기기 검증**: Galaxy Z Flip3에서 신규/편집/복사편집/미리보기/네이버 지도 딥링크 2단 다이얼로그 흐름 확인
 - **`FuelingServiceTest` 복구 반영**: 가이드는 `guides/fueling-service-test.md`에 정리됨. 사용자가 직접 반영
 - **로딩 오버레이 leak stuck 재발 시 로그 확인**: `[Loading] +N <path>`만 있고 매칭 `-N` 없는 요청 URL이 진짜 leak 소스
 - **주요 미결/후속** (이전 사이클에서 이월):

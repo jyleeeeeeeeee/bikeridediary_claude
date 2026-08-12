@@ -2,9 +2,12 @@
   BRD 라이딩 코스 2차 목업 — 인덱스
   목적: 코스 생성/편집 UI 시각적 확인 + flutter-dev 레퍼런스
   전제조건:
-    - D1=A (path 현행 JSON), D2=A (distance만), D3=A (place+임의 지점)
-    - D4=A (드래그 재배열), D5=B (미리보기 버튼 클릭 시 Naver Directions 호출, 좌표 미세 변경 API 낭비 방지), D6=A (복사편집 포함), D7=A (저장 차단)
-  생성일: 2026-08-04
+    - D3=A: waypoint 추가 — 지도 롱프레스(임의 지점) + 등록 place 선택 둘 다
+    - D4=A: 순서 재배열 — 리스트 드래그 (ReorderableListView 스타일)
+    - D5=B: Directions 호출 — "경로 미리보기" 버튼 클릭 시 (좌표 미세 변경 API 낭비 방지)
+    - D6=A: 복사편집 — 이번 스코프 포함, 신규 생성 화면 프리필
+    - D7=A: Directions 실패 시 저장 차단 (미리보기 완료 후에만 저장 활성화)
+  생성일: 2026-08-12
 -->
 <!DOCTYPE html>
 <html lang="ko">
@@ -19,8 +22,8 @@
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif;
       background: #F2F2F7;
       color: #1C1C1E;
-      padding: 24px 20px 48px;
-      max-width: 760px;
+      padding: 24px 20px 56px;
+      max-width: 780px;
       margin: 0 auto;
     }
 
@@ -35,53 +38,30 @@
       margin-bottom: 4px;
     }
 
-    .phase-badge {
+    .badge {
       display: inline-block;
+      background: #007AFF;
+      color: #fff;
       font-size: 11px;
       font-weight: 700;
-      background: rgba(0,122,255,0.1);
-      color: #007AFF;
-      padding: 3px 10px;
+      padding: 2px 8px;
       border-radius: 99px;
-      margin-bottom: 10px;
-      letter-spacing: 0.4px;
+      margin-left: 6px;
+      vertical-align: middle;
     }
 
     .subtitle {
       font-size: 14px;
       color: #8E8E93;
-      line-height: 1.65;
+      margin-top: 6px;
+      line-height: 1.7;
     }
-
-    /* 결정 사항 요약 칩 */
-    .decision-grid {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin: 16px 0 28px;
-    }
-
-    .decision-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      padding: 5px 12px;
-      border-radius: 99px;
-      font-size: 12px;
-      font-weight: 600;
-      background: #fff;
-      border: 1.5px solid #E5E5EA;
-      color: #1C1C1E;
-    }
-
-    .decision-chip .key { color: #007AFF; }
-    .decision-chip .val { color: #1C1C1E; }
 
     h2 {
       font-size: 12px;
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.7px;
+      letter-spacing: 0.6px;
       color: #8E8E93;
       margin: 28px 0 10px;
       padding-bottom: 6px;
@@ -107,7 +87,7 @@
     }
 
     .screen-card:hover {
-      box-shadow: 0 4px 14px rgba(0,0,0,0.13);
+      box-shadow: 0 4px 14px rgba(0,0,0,0.14);
       transform: translateY(-2px);
     }
 
@@ -116,7 +96,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 42px;
+      font-size: 46px;
     }
 
     .screen-card-body {
@@ -143,21 +123,38 @@
       line-height: 1.5;
     }
 
-    /* 화면 흐름 */
+    /* 화면 흐름 박스 */
     .flow-box {
       background: #fff;
       border-radius: 12px;
       box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-      padding: 20px;
+      padding: 18px 20px;
+    }
+
+    .flow-section-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: #8E8E93;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 10px;
+    }
+
+    .flow-block {
+      margin-bottom: 18px;
+    }
+
+    .flow-block:last-child {
+      margin-bottom: 0;
     }
 
     .flow-row {
       display: flex;
       align-items: center;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-bottom: 10px;
+      gap: 8px;
+      margin-bottom: 8px;
       font-size: 13px;
+      flex-wrap: wrap;
     }
 
     .flow-row:last-child { margin-bottom: 0; }
@@ -177,49 +174,65 @@
     .flow-node:hover { background: #0051D5; }
 
     .flow-node.alt {
-      background: #34C759;
+      background: #FF9500;
     }
 
-    .flow-node.alt:hover { background: #248A3D; }
+    .flow-node.alt:hover {
+      background: #CC7700;
+    }
 
     .flow-arrow { color: #8E8E93; font-size: 14px; }
-    .flow-note  { font-size: 12px; color: #8E8E93; }
 
-    /* 요구사항 매핑 테이블 */
+    .flow-note {
+      font-size: 12px;
+      color: #8E8E93;
+    }
+
+    .flow-divider {
+      height: 1px;
+      background: #E5E5EA;
+      margin: 14px 0;
+    }
+
+    /* 요구사항 테이블 */
     table {
       width: 100%;
       border-collapse: collapse;
       font-size: 13px;
       background: #fff;
       border-radius: 12px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
       overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
     }
 
     th {
       text-align: left;
       font-weight: 700;
-      padding: 10px 12px;
+      padding: 10px 14px;
       background: #F2F2F7;
       border-bottom: 2px solid #E5E5EA;
+      font-size: 12px;
+      color: #8E8E93;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
     }
 
     td {
-      padding: 9px 12px;
+      padding: 10px 14px;
       border-bottom: 1px solid #E5E5EA;
       vertical-align: top;
+      line-height: 1.5;
     }
 
     td:first-child {
       font-weight: 700;
       color: #007AFF;
       white-space: nowrap;
-      width: 80px;
     }
 
     tr:last-child td { border-bottom: none; }
 
-    /* 스펙 그리드 */
+    /* 시각 스펙 그리드 */
     .spec-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -229,7 +242,7 @@
     .spec-card {
       background: #fff;
       border-radius: 10px;
-      padding: 13px 14px;
+      padding: 12px 14px;
       box-shadow: 0 1px 3px rgba(0,0,0,0.06);
     }
 
@@ -239,19 +252,8 @@
       text-transform: uppercase;
       letter-spacing: 0.5px;
       color: #8E8E93;
-      margin-bottom: 9px;
+      margin-bottom: 8px;
     }
-
-    .spec-row {
-      display: flex;
-      justify-content: space-between;
-      font-size: 12px;
-      margin-bottom: 5px;
-      gap: 8px;
-    }
-
-    .spec-row .key { color: #8E8E93; flex-shrink: 0; }
-    .spec-row .val { font-weight: 600; text-align: right; }
 
     .color-row {
       display: flex;
@@ -269,17 +271,16 @@
       border: 1px solid rgba(0,0,0,0.08);
     }
 
-    /* 주의사항 */
-    .notice-box {
-      background: #FFF3CD;
-      border: 1px solid #FFEAA7;
-      border-radius: 10px;
-      padding: 14px 16px;
-      font-size: 13px;
-      line-height: 1.65;
+    .spec-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      margin-bottom: 5px;
+      gap: 8px;
     }
 
-    .notice-box strong { color: #856404; }
+    .spec-row .key { color: #8E8E93; flex-shrink: 0; }
+    .spec-row .val { font-weight: 600; text-align: right; }
 
     /* 확인 방법 */
     .command-box {
@@ -292,106 +293,119 @@
       margin-top: 8px;
     }
 
-    /* 미결 체크리스트 */
-    .checklist {
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-      padding: 16px 18px;
-    }
-
-    .check-item {
-      display: flex;
-      align-items: flex-start;
-      gap: 8px;
-      padding: 5px 0;
+    /* 결정 필요 / 주의사항 박스 */
+    .notice-box {
+      background: #FFF8E8;
+      border: 1px solid #FFEAA7;
+      border-radius: 10px;
+      padding: 14px 16px;
       font-size: 13px;
-      color: #1C1C1E;
-      border-bottom: 1px solid #F2F2F7;
+      line-height: 1.7;
     }
 
-    .check-item:last-child { border-bottom: none; }
-    .check-icon { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+    .notice-box strong { color: #856404; }
+
+    .info-box {
+      background: rgba(0,122,255,0.06);
+      border: 1px solid rgba(0,122,255,0.2);
+      border-radius: 10px;
+      padding: 14px 16px;
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    .info-box strong { color: #007AFF; }
+
+    /* 1차 목업 링크 */
+    .link-row {
+      background: #fff;
+      border-radius: 10px;
+      padding: 12px 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.07);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: inherit;
+      font-size: 14px;
+    }
+
+    .link-row:hover {
+      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    }
   </style>
 </head>
 <body>
 
   <div class="page-header">
-    <div class="phase-badge">라이딩 코스 2차 스코프</div>
-    <h1>코스 생성 / 편집 목업</h1>
+    <h1>BRD 라이딩 코스 2차 목업 <span class="badge">Phase 2</span></h1>
     <p class="subtitle">
-      Flutter 구현 전 시각적 확인용 HTML 목업입니다.<br>
-      Naver Directions 15 통합 + waypoint 편집 UI + 복사 편집 흐름을 포함합니다.<br>
-      기존 1차 목업(<code>mockups/riding-course/</code>)의 조회/즐겨찾기 화면과 연결됩니다.
+      Flutter 구현 전 시각적 확인용 HTML 목업입니다. 코스 생성/편집/복사편집/미리보기 흐름을 다룹니다.<br>
+      1차 목업(조회/즐겨찾기)과 연결되어 전체 라이딩 코스 기능을 커버합니다.
     </p>
-
-    <!-- 확정된 결정 사항 요약 -->
-    <div class="decision-grid">
-      <div class="decision-chip"><span class="key">D1</span><span class="val">path: 현행 JSON</span></div>
-      <div class="decision-chip"><span class="key">D2</span><span class="val">distance만 저장</span></div>
-      <div class="decision-chip"><span class="key">D3</span><span class="val">place + 임의 지점</span></div>
-      <div class="decision-chip"><span class="key">D4</span><span class="val">드래그 재배열</span></div>
-      <div class="decision-chip"><span class="key">D5</span><span class="val">경로 미리보기 버튼 클릭 시 호출 (좌표 미세 변경 API 낭비 방지)</span></div>
-      <div class="decision-chip"><span class="key">D6</span><span class="val">복사편집 포함</span></div>
-      <div class="decision-chip"><span class="key">D7</span><span class="val">실패 시 저장 차단</span></div>
-    </div>
   </div>
 
+  <!-- 1차 목업 링크 -->
+  <h2>1차 목업 (조회/즐겨찾기)</h2>
+  <a href="../riding-course/index.html" class="link-row">
+    &#128506; 라이딩 코스 1차 목업 (조회/즐겨찾기/상세) &rarr;
+  </a>
+
   <!-- 화면 목록 -->
-  <h2>화면 목록</h2>
+  <h2>화면 목록 (2차 — 생성/편집)</h2>
   <div class="screen-grid">
 
-    <a href="01_new_empty.html" class="screen-card">
-      <div class="screen-thumb" style="background:#E8F0FE;">📝</div>
+    <a href="new-empty.html" class="screen-card">
+      <div class="screen-thumb" style="background: #E8F5E9;">&#128736;</div>
       <div class="screen-card-body">
         <div class="screen-num">화면 01</div>
         <div class="screen-title">신규 생성 — 빈 상태</div>
-        <div class="screen-desc">FAB(+) 클릭 진입. waypoint 0개, 저장/미리보기 비활성. "출발지를 추가하세요" 안내.</div>
+        <div class="screen-desc">지도 롱프레스 안내 + "+ 등록 장소 선택" 버튼. waypoint 0개 상태.</div>
       </div>
     </a>
 
-    <a href="02_waypoint_list.html" class="screen-card">
-      <div class="screen-thumb" style="background:#E8F8F0;">🗺️</div>
+    <a href="waypoint-list.html" class="screen-card">
+      <div class="screen-thumb" style="background: #E3F2FD;">&#128205;</div>
       <div class="screen-card-body">
         <div class="screen-num">화면 02</div>
-        <div class="screen-title">waypoint 편집 (3개)</div>
-        <div class="screen-desc">지도 마커 (폴리라인은 미리보기 전까지 없음). 드래그 재배열 리스트. "경로 미리보기" 버튼 클릭 시 Directions 호출. 저장은 미리보기 성공 후 활성.</div>
+        <div class="screen-title">Waypoint 편집 리스트</div>
+        <div class="screen-desc">드래그 핸들 / 삭제 / 순서 번호 / START·VIA·END role 배지 / place 연동 아이콘.</div>
       </div>
     </a>
 
-    <a href="03_place_selection_sheet.html" class="screen-card">
-      <div class="screen-thumb" style="background:#FFF8E8;">📍</div>
+    <a href="place-selection-sheet.html" class="screen-card">
+      <div class="screen-thumb" style="background: #FFF3E0;">&#128269;</div>
       <div class="screen-card-body">
         <div class="screen-num">화면 03</div>
-        <div class="screen-title">장소 선택 시트</div>
-        <div class="screen-desc">하단 슬라이드업. 카테고리 필터 + 검색. 상단에 "지도에서 직접 지정" 옵션.</div>
+        <div class="screen-title">등록 장소 선택 시트</div>
+        <div class="screen-desc">카테고리 필터 배지 + 검색창 + 결과 리스트 + role 선택 + 확정 버튼.</div>
       </div>
     </a>
 
-    <a href="04_map_edit.html" class="screen-card">
-      <div class="screen-thumb" style="background:#F0E8FF;">🎯</div>
+    <a href="preview.html" class="screen-card">
+      <div class="screen-thumb" style="background: #E8F5E9;">&#128506;</div>
       <div class="screen-card-body">
         <div class="screen-num">화면 04</div>
-        <div class="screen-title">지도 직접 지정</div>
-        <div class="screen-desc">전체 화면 지도 + 중앙 크로스헤어. 카메라 이동 후 "이 위치에 추가" 확정.</div>
+        <div class="screen-title">경로 미리보기</div>
+        <div class="screen-desc">Naver Directions 결과 폴리라인 + 총 거리 45.2 km + "저장하기" 버튼 활성화.</div>
       </div>
     </a>
 
-    <a href="05_preview.html" class="screen-card">
-      <div class="screen-thumb" style="background:#E8FFE8;">🔍</div>
+    <a href="save-confirm.html" class="screen-card">
+      <div class="screen-thumb" style="background: #EDE7F6;">&#128190;</div>
       <div class="screen-card-body">
         <div class="screen-num">화면 05</div>
-        <div class="screen-title">경로 미리보기</div>
-        <div class="screen-desc">미리보기 결과 화면. 폴리라인 + 거리 확인 후 저장 확정. "다시 편집" → 02로 돌아가면 stale 상태, 재편집 후 미리보기 다시 눌러야 저장 활성.</div>
+        <div class="screen-title">저장 확정 다이얼로그</div>
+        <div class="screen-desc">코스명 입력 (필수) + 설명 (optional) + 공개/비공개 iOS 스위치 + 취소/확인.</div>
       </div>
     </a>
 
-    <a href="06_copy_edit.html" class="screen-card">
-      <div class="screen-thumb" style="background:#FFF0E8;">📋</div>
+    <a href="copy-prefilled.html" class="screen-card">
+      <div class="screen-thumb" style="background: #FFF8E1;">&#128203;</div>
       <div class="screen-card-body">
         <div class="screen-num">화면 06</div>
-        <div class="screen-title">복사 편집 (파생)</div>
-        <div class="screen-desc">원본 배너 + 이름/waypoints 프리필. source_course_id 자동 세팅. "경로 미리보기" 버튼 직접 눌러야 폴리라인 표시. 나머지는 02와 동일.</div>
+        <div class="screen-title">복사 편집 (프리필)</div>
+        <div class="screen-desc">원본 출처 배너 + waypoint/name 미리 채워진 편집 화면. 신규 생성과 동일 UI.</div>
       </div>
     </a>
 
@@ -401,224 +415,210 @@
   <h2>화면 흐름</h2>
   <div class="flow-box">
 
-    <div class="flow-row">
-      <span class="flow-note">신규 생성 흐름:</span>
-      <a href="01_new_empty.html" class="flow-node">01 빈 상태</a>
-      <span class="flow-arrow">→ 경유지 추가 →</span>
-      <a href="02_waypoint_list.html" class="flow-node">02 waypoint 편집</a>
+    <div class="flow-block">
+      <div class="flow-section-title">흐름 A — 신규 생성</div>
+      <div class="flow-row">
+        <span class="flow-note">1차 목업 내 코스 FAB(+) 클릭</span>
+        <span class="flow-arrow">&rarr;</span>
+        <a href="new-empty.html" class="flow-node">01 빈 상태</a>
+      </div>
+      <div class="flow-row">
+        <span class="flow-note" style="width: 160px;">"+ 등록 장소 선택" 클릭</span>
+        <span class="flow-arrow">&rarr;</span>
+        <a href="place-selection-sheet.html" class="flow-node">03 장소 선택 시트</a>
+        <span class="flow-arrow">&rarr;</span>
+        <a href="waypoint-list.html" class="flow-node">02 편집 리스트</a>
+      </div>
+      <div class="flow-row">
+        <span class="flow-note" style="width: 160px;">지도 롱프레스</span>
+        <span class="flow-arrow">&rarr;</span>
+        <a href="waypoint-list.html" class="flow-node">02 편집 리스트</a>
+        <span class="flow-note">(임의 지점 추가됨)</span>
+      </div>
+      <div class="flow-row">
+        <span class="flow-note" style="width: 160px;">"경로 미리보기" 클릭</span>
+        <span class="flow-arrow">&rarr;</span>
+        <span class="flow-note">[API 호출 로딩]</span>
+        <span class="flow-arrow">&rarr;</span>
+        <a href="preview.html" class="flow-node">04 미리보기</a>
+      </div>
+      <div class="flow-row">
+        <span class="flow-note" style="width: 160px;">"저장하기" 클릭</span>
+        <span class="flow-arrow">&rarr;</span>
+        <a href="save-confirm.html" class="flow-node">05 저장 다이얼로그</a>
+        <span class="flow-arrow">&rarr;</span>
+        <span class="flow-note">1차 목업 내 코스 목록</span>
+      </div>
     </div>
 
-    <div class="flow-row">
-      <span style="width:90px;"></span>
-      <a href="02_waypoint_list.html" class="flow-node">02</a>
-      <span class="flow-arrow">→ + 경유지 추가 →</span>
-      <a href="03_place_selection_sheet.html" class="flow-node">03 장소 선택</a>
-      <span class="flow-note">또는</span>
-      <a href="04_map_edit.html" class="flow-node">04 지도 직접 지정</a>
+    <div class="flow-divider"></div>
+
+    <div class="flow-block">
+      <div class="flow-section-title">흐름 B — 복사 편집 (D6)</div>
+      <div class="flow-row">
+        <span class="flow-note">1차 목업 코스 상세(남의 코스)</span>
+        <span class="flow-arrow">&rarr;</span>
+        <span class="flow-note">⋮ 메뉴 &rarr; "내 코스로 복사 편집"</span>
+        <span class="flow-arrow">&rarr;</span>
+        <a href="copy-prefilled.html" class="flow-node alt">06 복사 편집</a>
+      </div>
+      <div class="flow-row">
+        <span class="flow-note">이후 흐름은 흐름 A와 동일</span>
+        <span class="flow-arrow">&rarr;</span>
+        <a href="preview.html" class="flow-node">04 미리보기</a>
+        <span class="flow-arrow">&rarr;</span>
+        <a href="save-confirm.html" class="flow-node">05 저장</a>
+      </div>
     </div>
 
-    <div class="flow-row">
-      <span style="width:90px;"></span>
-      <a href="02_waypoint_list.html" class="flow-node">02 waypoint 편집</a>
-      <span class="flow-arrow">→ 미리보기 버튼 →</span>
-      <a href="05_preview.html" class="flow-node alt">05 경로 미리보기</a>
-      <span class="flow-arrow">→ 저장 →</span>
-      <span class="flow-note">코스 홈</span>
-    </div>
+    <div class="flow-divider"></div>
 
-    <div class="flow-row">
-      <span style="width:90px;"></span>
-      <a href="05_preview.html" class="flow-node alt">05</a>
-      <span class="flow-arrow">→ "다시 편집" →</span>
-      <a href="02_waypoint_list.html" class="flow-node">02 (stale 상태)</a>
-      <span class="flow-note">재편집 후 미리보기 버튼 다시 눌러야 저장 활성</span>
-    </div>
-
-    <div class="flow-row">
-      <span class="flow-note">복사 편집 흐름 (1차 05-course-detail-others.html에서 진입):</span>
-    </div>
-
-    <div class="flow-row">
-      <span style="width:10px;"></span>
-      <span class="flow-note">남의 코스 상세 → "내 코스로 복사" →</span>
-      <a href="06_copy_edit.html" class="flow-node">06 복사 편집 (미리보기 버튼 필요)</a>
-      <span class="flow-arrow">→ 미리보기 버튼 →</span>
-      <a href="05_preview.html" class="flow-node alt">05</a>
+    <div class="flow-block">
+      <div class="flow-section-title">흐름 C — 편집 리스트 상세 조작</div>
+      <div class="flow-row">
+        <a href="waypoint-list.html" class="flow-node">02 편집 리스트</a>
+        <span class="flow-arrow">&rarr;</span>
+        <span class="flow-note">드래그 핸들 잡고 이동 = 순서 재배열 (ReorderableListView)</span>
+      </div>
+      <div class="flow-row">
+        <span style="width: 110px;"></span>
+        <span class="flow-arrow">&rarr;</span>
+        <span class="flow-note">&#215; 버튼 탭 = VIA 항목 삭제 (START·END는 삭제 불가)</span>
+      </div>
+      <div class="flow-row">
+        <span style="width: 110px;"></span>
+        <span class="flow-arrow">&rarr;</span>
+        <a href="place-selection-sheet.html" class="flow-node">03 장소 시트</a>
+        <span class="flow-note">또는 지도 롱프레스로 VIA 추가</span>
+      </div>
     </div>
 
   </div>
 
   <!-- 요구사항 매핑 -->
-  <h2>요구사항 매핑 (plans/riding-course-phase2.md In-Scope)</h2>
+  <h2>요구사항 매핑 (D1~D7 확정 사항)</h2>
   <table>
     <thead>
       <tr>
-        <th>항목</th>
-        <th>반영 화면</th>
+        <th>결정 #</th>
+        <th>반영 파일</th>
         <th>반영 내용</th>
       </tr>
     </thead>
     <tbody>
       <tr>
-        <td>In-Scope #1</td>
-        <td>05_preview</td>
-        <td>Naver Directions 15 통합 결과: 폴리라인 + 거리 표시. "온라인 전용" 칩.</td>
+        <td>D1=A<br><small>path JSON 저장</small></td>
+        <td>preview.html</td>
+        <td>Directions 결과의 path 좌표 배열을 JSON으로 저장 (courses.path TEXT 컬럼 재사용). 목업에서는 SVG 폴리라인으로 시각화.</td>
       </tr>
       <tr>
-        <td>In-Scope #2</td>
-        <td>02, 03, 04</td>
-        <td>waypoint 지도 편집 UI: 지도 마커 + 편집 리스트 + 장소 선택 시트 + 지도 직접 지정.</td>
+        <td>D2=A<br><small>distance만</small></td>
+        <td>preview.html, save-confirm.html</td>
+        <td>총 거리(km)만 표시. 소요 시간 UI 없음.</td>
       </tr>
       <tr>
-        <td>In-Scope #3</td>
-        <td>05_preview</td>
-        <td>POST /courses 저장 버튼(활성), PATCH 편집 흐름은 02로 재진입. preview: POST /courses/preview.</td>
+        <td>D3=A<br><small>둘 다</small></td>
+        <td>new-empty.html, waypoint-list.html, place-selection-sheet.html</td>
+        <td>롱프레스(임의 지점) + 등록 place 선택 둘 다 지원. 편집 리스트에서 "임의 지점" / "등록 장소" 구분 표시.</td>
       </tr>
       <tr>
-        <td>In-Scope #4</td>
-        <td>06_copy_edit</td>
-        <td>복사 편집: 원본 배너 + name/waypoints 프리필 + source_course_id 세팅 명시.</td>
+        <td>D4=A<br><small>드래그</small></td>
+        <td>waypoint-list.html, copy-prefilled.html</td>
+        <td>드래그 핸들(3줄 아이콘) + ReorderableListView 스타일. START·END는 핸들 비활성(opacity 0.3). 드래그 중 항목 강조 시뮬레이션.</td>
       </tr>
       <tr>
-        <td>In-Scope #5</td>
-        <td>05_preview</td>
-        <td>distance_meters 자동 계산 (D2=A: distance만 표시). "42.5 km" 큰 수치 UI.</td>
+        <td>D5=B<br><small>미리보기 버튼 클릭</small></td>
+        <td>waypoint-list.html &rarr; preview.html</td>
+        <td>AppBar "미리보기" 버튼 + 하단 "경로 미리보기" 버튼 명시. 저장 버튼은 preview.html에서만 활성화.</td>
       </tr>
       <tr>
-        <td>In-Scope #6 (D5=B)</td>
-        <td>02 (미리보기 버튼), 05 (결과 확인)</td>
-        <td>02 하단 "경로 미리보기" 버튼 클릭 시 Directions 호출 → 05로 이동해 폴리라인+거리 표시. 저장은 05에서. 재편집 시 stale 배너 표시 후 미리보기 재실행 필요. debounce 정책 없음.</td>
+        <td>D6=A<br><small>복사편집 포함</small></td>
+        <td>copy-prefilled.html</td>
+        <td>남의 코스 상세 → 복사 편집 진입 시 원본 출처 배너(파란색) + 프리필된 waypoint 리스트. 신규 생성 화면(waypoint-list.html)과 동일 구조.</td>
       </tr>
       <tr>
-        <td>D3=A</td>
-        <td>03, 04</td>
-        <td>place 선택 + 임의 지점 두 흐름 분리. 시트 상단 "지도에서 직접 지정" 진입점.</td>
-      </tr>
-      <tr>
-        <td>D4=A</td>
-        <td>02, 06</td>
-        <td>드래그 핸들(⠿) 아이콘. 리스트 항목 좌측 배치. ReorderableListView 패턴.</td>
-      </tr>
-      <tr>
-        <td>D7=A</td>
-        <td>02, 05</td>
-        <td>저장 버튼은 미리보기 성공 후에만 활성. 실패 시 비활성 유지 + 토스트 안내.</td>
+        <td>D7=A<br><small>저장 차단</small></td>
+        <td>new-empty.html, waypoint-list.html, preview.html</td>
+        <td>AppBar "저장" 버튼: 빈 상태·편집 리스트에서는 disabled(회색). preview.html에서 Directions 완료 후에만 활성(파랑).</td>
       </tr>
     </tbody>
   </table>
 
   <!-- flutter-dev 시각 스펙 -->
   <h2>flutter-dev 시각 스펙</h2>
-
   <div class="spec-grid">
 
     <div class="spec-card">
-      <div class="spec-label">신규 컴포넌트 색상</div>
-      <div class="color-row"><div class="color-swatch" style="background:#007AFF;"></div><span>#007AFF — 미리보기 버튼 / 주 액션</span></div>
-      <div class="color-row"><div class="color-swatch" style="background:#34C759;"></div><span>#34C759 — 출발 마커 / 성공 배너</span></div>
-      <div class="color-row"><div class="color-swatch" style="background:#FF3B30;"></div><span>#FF3B30 — 목적 마커 / 삭제 버튼</span></div>
-      <div class="color-row"><div class="color-swatch" style="background:#FF9500;"></div><span>#FF9500 — 원본 배너 (복사 편집)</span></div>
-      <div class="color-row"><div class="color-swatch" style="background:#C7C7CC;"></div><span>#C7C7CC — 드래그 핸들 / 저장 비활성</span></div>
-      <div class="color-row"><div class="color-swatch" style="background:#E5E5EA;"></div><span>#E5E5EA — 지도 플레이스홀더 배경</span></div>
+      <div class="spec-label">Waypoint Role 색상</div>
+      <div class="color-row"><div class="color-swatch" style="background:#34C759;"></div><span>#34C759 — START (초록)</span></div>
+      <div class="color-row"><div class="color-swatch" style="background:#FF9500;"></div><span>#FF9500 — VIA (오렌지)</span></div>
+      <div class="color-row"><div class="color-swatch" style="background:#FF3B30;"></div><span>#FF3B30 — END (빨강)</span></div>
+      <div class="color-row"><div class="color-swatch" style="background:#007AFF;"></div><span>#007AFF — VIA 번호 배지/마커 핀</span></div>
+      <div class="color-row"><div class="color-swatch" style="background:#007AFF; opacity:0.9;"></div><span>#007AFF @90% — 폴리라인</span></div>
     </div>
 
     <div class="spec-card">
-      <div class="spec-label">카테고리 배지 색상</div>
-      <div class="color-row"><div class="color-swatch" style="background:rgba(52,199,89,0.12); border:1px solid #34C759;"></div><span>명소 — 초록 계열</span></div>
-      <div class="color-row"><div class="color-swatch" style="background:rgba(255,149,0,0.12); border:1px solid #FF9500;"></div><span>카페 — 주황 계열</span></div>
-      <div class="color-row"><div class="color-swatch" style="background:rgba(0,122,255,0.12); border:1px solid #007AFF;"></div><span>정비소 — 파랑 계열</span></div>
-      <div class="color-row"><div class="color-swatch" style="background:rgba(255,59,48,0.12); border:1px solid #FF3B30;"></div><span>주유 — 빨강 계열</span></div>
-      <div class="color-row"><div class="color-swatch" style="background:rgba(142,142,147,0.12); border:1px solid #8E8E93;"></div><span>임의 지점 / 기타 — 회색</span></div>
+      <div class="spec-label">편집 리스트 치수</div>
+      <div class="spec-row"><span class="key">아이템 높이</span><span class="val">~52px</span></div>
+      <div class="spec-row"><span class="key">드래그 핸들 폭</span><span class="val">30px (3줄, 18px 폭)</span></div>
+      <div class="spec-row"><span class="key">순서 번호 원 지름</span><span class="val">28px</span></div>
+      <div class="spec-row"><span class="key">role 배지 높이</span><span class="val">20px, radius 99px</span></div>
+      <div class="spec-row"><span class="key">삭제 버튼 지름</span><span class="val">30px</span></div>
+      <div class="spec-row"><span class="key">map 마커 핀 크기</span><span class="val">26×26px</span></div>
+      <div class="spec-row"><span class="key">VIA 번호 배지 지름</span><span class="val">26px</span></div>
     </div>
 
     <div class="spec-card">
-      <div class="spec-label">레이아웃 치수</div>
-      <div class="spec-row"><span class="key">AppBar 높이</span><span class="val">56px</span></div>
-      <div class="spec-row"><span class="key">지도 영역 (편집)</span><span class="val">280px (고정)</span></div>
-      <div class="spec-row"><span class="key">지도 영역 (미리보기)</span><span class="val">320px (고정)</span></div>
-      <div class="spec-row"><span class="key">지도 편집 (전체)</span><span class="val">flex: 1 (나머지 채움)</span></div>
-      <div class="spec-row"><span class="key">하단 시트 최대 높이</span><span class="val">화면 - 지도 영역</span></div>
-      <div class="spec-row"><span class="key">wp-edit-list 최대</span><span class="val">220px (스크롤)</span></div>
-      <div class="spec-row"><span class="key">경유지 추가 버튼</span><span class="val">40px, dashed border</span></div>
-      <div class="spec-row"><span class="key">액션 바 버튼 높이</span><span class="val">44px</span></div>
-      <div class="spec-row"><span class="key">드래그 핸들 폰트</span><span class="val">18px, #C7C7CC</span></div>
-      <div class="spec-row"><span class="key">waypoint 도트</span><span class="val">30px 원형</span></div>
+      <div class="spec-label">Flutter 컴포넌트 매핑</div>
+      <div class="spec-row"><span class="key">드래그 재배열</span><span class="val">ReorderableListView</span></div>
+      <div class="spec-row"><span class="key">드래그 핸들</span><span class="val">ReorderableDragStartListener</span></div>
+      <div class="spec-row"><span class="key">하단 시트</span><span class="val">showModalBottomSheet</span></div>
+      <div class="spec-row"><span class="key">공개 스위치</span><span class="val">CupertinoSwitch</span></div>
+      <div class="spec-row"><span class="key">저장 다이얼로그</span><span class="val">showDialog (Material)</span></div>
+      <div class="spec-row"><span class="key">로딩 오버레이</span><span class="val">Stack + CircularProgressIndicator</span></div>
+      <div class="spec-row"><span class="key">지도 롱프레스</span><span class="val">NaverMapController.onMapLongTapped</span></div>
+      <div class="spec-row"><span class="key">폴리라인</span><span class="val">NPolylineOverlay</span></div>
     </div>
 
     <div class="spec-card">
-      <div class="spec-label">아이콘 매핑</div>
-      <div class="spec-row"><span class="key">⠿ 드래그 핸들</span><span class="val">Icons.drag_handle</span></div>
-      <div class="spec-row"><span class="key">− 삭제</span><span class="val">Icons.remove, danger</span></div>
-      <div class="spec-row"><span class="key">+ 경유지 추가</span><span class="val">Icons.add</span></div>
-      <div class="spec-row"><span class="key">미리보기 성공</span><span class="val">Icons.check_circle, #34C759</span></div>
-      <div class="spec-row"><span class="key">경로 계산 중...</span><span class="val">CupertinoActivityIndicator (12px, 버튼 내부)</span></div>
-      <div class="spec-row"><span class="key">📍 직접 지정</span><span class="val">Icons.location_on</span></div>
-      <div class="spec-row"><span class="key">✓ 성공</span><span class="val">Icons.check_circle_outline</span></div>
-      <div class="spec-row"><span class="key">📋 복사</span><span class="val">Icons.copy_all_outlined</span></div>
-      <div class="spec-row"><span class="key">크로스헤어</span><span class="val">CustomPaint 또는 Stack 라인</span></div>
-    </div>
-
-    <div class="spec-card" style="grid-column: 1 / -1;">
-      <div class="spec-label">Flutter 구현 시 주의사항</div>
-      <div style="font-size:13px; line-height:1.7; color:#1C1C1E;">
-        <strong>ReorderableListView (D4=A)</strong>: 각 waypoint 항목에 고유 Key 필수.
-        START/GOAL 항목도 드래그 허용하되 재배열 후 role 재계산 (첫 번째 = START, 마지막 = GOAL, 나머지 = VIA).<br><br>
-        <strong>저장 버튼 활성 조건 (D5=B + D7=A)</strong>: <code>previewSuccess &amp;&amp; !waypointsChangedSincePreview</code>.
-        "경로 미리보기" 버튼 클릭 시 <code>POST /courses/preview</code> 1회 호출 → 성공 시 05_preview로 이동. 05에서 "저장" 버튼 활성. 05에서 "다시 편집" 클릭 시 02로 돌아오면 <code>waypointsChangedSincePreview = true</code>로 세팅 → 저장 버튼 비활성 + stale 안내 배너 표시 ("경유지를 변경했습니다. 미리보기를 다시 실행하세요"). debounce 정책 없음.<br><br>
-        <strong>장소 선택 시트 (D3=A)</strong>: <code>showModalBottomSheet</code> + <code>SafeArea</code> 필수.
-        place 리스트는 기존 <code>allPlacesProvider</code> 재사용. 거리는 현재 지도 카메라 중심 기준 계산.<br><br>
-        <strong>크로스헤어 (04 지도 편집)</strong>: 지도 위 <code>Stack</code>에 절대 배치. 지도 카메라 이동 → <code>onCameraIdle</code> 콜백에서 중심 좌표 캡처.
-        카메라 이동 중 좌표 라벨은 이전 값 유지(렉 방지).<br><br>
-        <strong>SafeArea (shell 밖 전체 화면)</strong>: 하단 고정 버튼 영역 <code>SafeArea(top: false)</code> 필수.
-        지도 영역 배경 그래디언트 없어서 body 전체 SafeArea도 허용.<br><br>
-        <strong>복사 편집 (D6=A + D5=B)</strong>: 라우트 <code>/riding-courses/:id/copy</code>. <code>CourseEditScreen</code>에
-        <code>sourceCourse</code> 파라미터 옵셔널로 넘기면 name/waypoints 프리필 + <code>sourceCourseId</code> 세팅.
-        프리필 직후에도 자동 Directions 호출 없음. 사용자가 "경로 미리보기" 버튼을 직접 눌러야 폴리라인 생성.
-      </div>
+      <div class="spec-label">아이콘 매핑 (이모지 → Flutter)</div>
+      <div class="spec-row"><span class="key">&#128205; 임의 지점</span><span class="val">Icons.location_on</span></div>
+      <div class="spec-row"><span class="key">&#127937; END</span><span class="val">Icons.flag</span></div>
+      <div class="spec-row"><span class="key">&#128203; 복사편집</span><span class="val">Icons.copy_all_outlined</span></div>
+      <div class="spec-row"><span class="key">&#128190; 저장</span><span class="val">Icons.save_outlined</span></div>
+      <div class="spec-row"><span class="key">&#128506; 미리보기/지도</span><span class="val">Icons.map_outlined</span></div>
+      <div class="spec-row"><span class="key">&#128269; 검색</span><span class="val">Icons.search</span></div>
+      <div class="spec-row"><span class="key">드래그 핸들</span><span class="val">Icons.drag_handle</span></div>
+      <div class="spec-row"><span class="key">&#215; 삭제</span><span class="val">Icons.close</span></div>
     </div>
 
   </div>
 
-  <!-- 미결 / 결정 필요 사항 -->
-  <h2>flutter-dev에게 전달할 미결 사항</h2>
-  <div class="checklist">
-    <div class="check-item">
-      <span class="check-icon">⚠️</span>
-      <div>경유지 15개 도달 시 "+ 경유지 추가" 버튼 완전 숨김 vs 비활성 처리 — 목업에서는 비활성 패턴으로 표현됨. flutter-dev 판단 위임.</div>
-    </div>
-    <div class="check-item">
-      <span class="check-icon">⚠️</span>
-      <div>waypoint 개수 2개 미만(START만 있거나 GOAL 없음)에서 미리보기 버튼 활성 여부 — Naver Directions는 최소 출발+도착 2개 필요. 1개일 때 안내 토스트 권장.</div>
-    </div>
-    <div class="check-item">
-      <span class="check-icon">⚠️</span>
-      <div>미리보기 버튼 로딩 상태 — <code>loadingCountProvider</code> 제외 대상(background 요청). "경로 미리보기" 버튼 내부 스피너로 표시 (CupertinoActivityIndicator). 실패 시 토스트 + 버튼 재활성, 저장 비활성 유지.</div>
-    </div>
-    <div class="check-item">
-      <span class="check-icon">⚠️</span>
-      <div>편집 중 오프라인 진입 시 UX — 미리보기/저장 버튼 비활성 + "온라인이 필요합니다" 배너. 목업 04(지도 편집)에는 표현 안 됨.</div>
-    </div>
-    <div class="check-item">
-      <span class="check-icon">ℹ️</span>
-      <div>기존 코스 편집(PATCH): <code>regeneratePath: true</code> 플래그. waypoints 변경 시 앱이 자동으로 true 세팅. 이름/공개여부만 바꾸면 false.</div>
-    </div>
-    <div class="check-item">
-      <span class="check-icon">ℹ️</span>
-      <div>place 선택 시 place_id + 좌표/이름 스냅샷 둘 다 저장 (1차 DB 설계와 동일). place 삭제 후 편집 시 해당 waypoint는 place_id=null, 임의 지점으로 표시.</div>
-    </div>
+  <!-- 결정 필요 사항 / 주의사항 -->
+  <h2>flutter-dev 주의사항</h2>
+  <div class="notice-box">
+    <strong>SafeArea</strong>: 이 화면들은 shell 밖 전체 화면. 하단 액션바 + 홈 인디케이터 대응 필수.<br>
+    하단 고정 버튼: <code>SafeArea(top: false)</code> 또는 <code>EdgeInsets.only(bottom: MediaQuery.of(context).viewPadding.bottom)</code><br><br>
+    <strong>지도 롱프레스 구현</strong>: <code>NaverMapController.onMapLongTapped</code> 콜백으로 좌표 수신 → WaypointEntity 생성 → 로컬 리스트에 VIA로 추가.<br><br>
+    <strong>ReorderableListView 주의</strong>: START·END는 reorder 불가 처리 (<code>key</code>는 필수, START·END 항목은 드래그 핸들 비활성화).<br>
+    실제 구현 시 <code>onReorder</code> 콜백에서 START(index 0)·END(마지막 index) 이동을 무시(guard).<br><br>
+    <strong>Directions API 호출 시점</strong>: "미리보기" 버튼 클릭 시 1회만 호출. waypoint 좌표 변경 없이 다시 누르면 캐시 응답 재사용 권장.<br><br>
+    <strong>저장 차단(D7)</strong>: AppBar "저장" 버튼은 <code>_previewCompleted</code> 상태 변수로 enable/disable 제어. Directions 실패 시 snackbar 표시 후 저장 불가.
+  </div>
+
+  <h2>결정 필요 사항 (flutter-dev 착수 전 확인)</h2>
+  <div class="info-box">
+    <strong>place-selection-sheet에서 "임의 지점 추가" 버튼 필요 여부</strong><br>
+    목업에서는 시트에서 등록 장소만 선택하고, 임의 지점은 지도 롱프레스로만 추가합니다.
+    시트 안에 "지도에서 직접 찍기" 버튼을 추가할지는 flutter-dev 판단 위임.<br><br>
+    <strong>하단 시트 높이 동적 조절</strong><br>
+    검색 결과 개수에 따라 시트 높이를 DraggableScrollableSheet로 조절할지,
+    고정 높이(최대 60% 화면)로 스크롤할지 flutter-dev 판단 위임.
   </div>
 
   <!-- 확인 방법 -->
   <h2>확인 방법</h2>
   <div class="command-box">start mockups\riding-course-phase2\index.html</div>
-
-  <!-- 1차 목업 링크 -->
-  <h2>관련 파일</h2>
-  <div style="background:#fff; border-radius:10px; box-shadow:0 1px 3px rgba(0,0,0,0.08); padding:14px 16px; font-size:13px; line-height:2;">
-    1차 목업 (조회/즐겨찾기): <a href="../riding-course/index.html" style="color:#007AFF; font-weight:600; text-decoration:none;">../riding-course/index.html</a><br>
-    PM 계획 문서: <code>brd_claude/plans/riding-course-phase2.md</code><br>
-    1차 백엔드 가이드: <code>brd_claude/guides/course-backend.md</code>
-  </div>
 
 </body>
 </html>

@@ -1,0 +1,138 @@
+<!--
+  화면명: 저장 확정 다이얼로그
+  요구사항: 코스명 입력 (필수), 설명 (optional), 공개/비공개 스위치
+  포함 요소: Cupertino 스타일 다이얼로그, 취소/확인 버튼
+  진입: preview.html의 "저장하기" 버튼 클릭
+-->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BRD 목업 — 저장 확정 다이얼로그</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="phone-wrap">
+  <div class="phone">
+
+    <div class="phone-body" style="position: relative;">
+
+      <!-- AppBar (배경으로 보임) -->
+      <div class="appbar">
+        <a href="waypoint-list.html" class="appbar-back">&#8249;</a>
+        <span class="appbar-title">경로 미리보기</span>
+        <span class="appbar-action" style="color: var(--color-primary); font-weight: 700;">저장</span>
+      </div>
+
+      <!-- 배경 (미리보기 화면이 뒤에 보이는 느낌) -->
+      <div style="flex: 1; background: #C8D8BB; position: relative; overflow: hidden;">
+        <!-- 격자 패턴 -->
+        <div style="position:absolute; inset:0; background-image: linear-gradient(rgba(100,140,100,0.18) 1px, transparent 1px), linear-gradient(90deg, rgba(100,140,100,0.18) 1px, transparent 1px); background-size: 36px 36px;"></div>
+        <!-- 폴리라인 흐릿하게 -->
+        <svg viewBox="0 0 414 500" preserveAspectRatio="none" style="position:absolute; inset:0; width:100%; height:100%; opacity: 0.5;">
+          <path
+            d="M 68 350 C 100 320, 140 280, 180 240 C 210 210, 240 195, 265 175 C 290 155, 320 148, 350 155"
+            fill="none"
+            stroke="#007AFF"
+            stroke-width="4"
+            stroke-linecap="round"/>
+        </svg>
+      </div>
+
+      <!-- 다이얼로그 오버레이 -->
+      <div class="dialog-overlay">
+        <div class="dialog-box">
+
+          <!-- 다이얼로그 헤더 -->
+          <div class="dialog-header">
+            <div class="dialog-title">&#128190; 코스 저장</div>
+            <div class="dialog-desc">코스 이름과 공개 여부를 설정하세요.</div>
+          </div>
+
+          <!-- 다이얼로그 바디 -->
+          <div class="dialog-body">
+
+            <!-- 코스명 (필수) -->
+            <div class="form-field">
+              <label class="form-label">코스 이름 <span style="color: var(--color-danger);">*</span></label>
+              <input
+                class="form-input"
+                type="text"
+                placeholder="예: 판교-춘천 바이크 코스"
+                value="판교-춘천 바이크 코스">
+            </div>
+
+            <!-- 설명 (optional) -->
+            <div class="form-field">
+              <label class="form-label">설명 <span style="color: #8E8E93; font-weight: 400;">(선택)</span></label>
+              <textarea
+                style="height: 72px; border: 1px solid var(--color-divider); border-radius: 6px; padding: 10px 12px; font-size: 14px; color: var(--color-text-primary); background: var(--color-bg); outline: none; resize: none; font-family: inherit; line-height: 1.5;"
+                placeholder="코스에 대한 메모를 입력하세요 (도로 상태, 추천 시즌 등)"></textarea>
+            </div>
+
+            <!-- 공개/비공개 스위치 -->
+            <div class="toggle-row">
+              <div class="toggle-info">
+                <div class="toggle-label">공개 코스</div>
+                <div class="toggle-sub">ON: 다른 라이더가 탐색 가능</div>
+              </div>
+              <div class="ios-toggle" id="togglePublic" onclick="togglePublicFn()" title="클릭하여 전환"></div>
+            </div>
+
+            <!-- 거리 정보 요약 (읽기 전용) -->
+            <div style="background: #F2F2F7; border-radius: 8px; padding: 10px 12px; display: flex; gap: 16px;">
+              <div>
+                <div style="font-size: 11px; color: #8E8E93; margin-bottom: 2px;">총 거리</div>
+                <div style="font-size: 15px; font-weight: 700; color: #1C1C1E;">45.2 km</div>
+              </div>
+              <div>
+                <div style="font-size: 11px; color: #8E8E93; margin-bottom: 2px;">경유지</div>
+                <div style="font-size: 15px; font-weight: 700; color: #1C1C1E;">2곳</div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- 다이얼로그 버튼 -->
+          <div class="dialog-actions">
+            <button class="dialog-btn" onclick="window.location.href='preview.html'">취소</button>
+            <button class="dialog-btn confirm" onclick="showSaved()">저장 완료</button>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- 프로토타입 네비게이션 -->
+<div class="proto-nav">
+  <a href="preview.html">&#8592; 미리보기</a>
+  <span class="proto-screen-label">화면 05 — 저장 확정 다이얼로그</span>
+  <a href="index.html">저장 후 목록 &#8594;</a>
+</div>
+
+<script>
+  // 공개 토글 시뮬레이션
+  let isPublic = true;
+  function togglePublicFn() {
+    isPublic = !isPublic;
+    const el = document.getElementById('togglePublic');
+    if (isPublic) {
+      el.classList.remove('off');
+    } else {
+      el.classList.add('off');
+    }
+  }
+
+  // 저장 완료 시뮬레이션
+  function showSaved() {
+    alert('코스가 저장되었습니다! (목업)\n\n실제 앱에서는 코스 목록으로 이동합니다.');
+    window.location.href = 'index.html';
+  }
+</script>
+
+</body>
+</html>

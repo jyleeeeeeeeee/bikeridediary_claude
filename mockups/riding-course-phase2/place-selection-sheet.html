@@ -1,0 +1,247 @@
+<!--
+  화면명: 등록 장소 선택 — 하단 시트
+  요구사항: D3 (등록 place 선택 경로)
+  포함 요소: 카테고리 필터 배지, 검색창, 결과 리스트, 선택 확정 버튼
+  진입: waypoint 편집 화면에서 "+ 등록 장소 선택" 버튼 클릭
+-->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BRD 목업 — 등록 장소 선택 시트</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* 지도가 보이는 상태에서 시트가 올라온 구조 */
+    .map-area {
+      height: 220px;
+      flex-shrink: 0;
+    }
+
+    /* 선택된 항목 강조 */
+    .place-item.selected .place-name {
+      color: var(--color-primary);
+    }
+
+    .place-item.selected .place-cat-icon {
+      box-shadow: 0 0 0 2px var(--color-primary);
+    }
+
+    /* 선택 체크 표시 */
+    .place-check {
+      font-size: 18px;
+      color: var(--color-primary);
+      flex-shrink: 0;
+    }
+
+    /* 역할 선택 (어느 role로 추가할지) */
+    .role-picker {
+      display: flex;
+      gap: 8px;
+      padding: 0 16px;
+      margin-top: 8px;
+    }
+
+    .role-btn {
+      flex: 1;
+      height: 36px;
+      border-radius: var(--r-full);
+      border: 2px solid var(--color-divider);
+      background: none;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .role-btn.start {
+      color: var(--color-wp-start);
+    }
+    .role-btn.start.selected {
+      border-color: var(--color-wp-start);
+      background: rgba(52,199,89,0.1);
+    }
+
+    .role-btn.via {
+      color: var(--color-wp-via);
+    }
+    .role-btn.via.selected {
+      border-color: var(--color-wp-via);
+      background: rgba(255,149,0,0.1);
+    }
+
+    .role-btn.end {
+      color: var(--color-wp-end);
+    }
+    .role-btn.end.selected {
+      border-color: var(--color-wp-end);
+      background: rgba(255,59,48,0.1);
+    }
+
+    .role-label {
+      padding: 6px 16px 2px;
+      font-size: 12px;
+      color: var(--color-text-secondary);
+    }
+  </style>
+</head>
+<body>
+<div class="phone-wrap">
+  <div class="phone">
+
+    <div class="phone-body">
+
+      <!-- AppBar -->
+      <div class="appbar">
+        <a href="waypoint-list.html" class="appbar-back">&#8249;</a>
+        <span class="appbar-title">장소 선택</span>
+        <a href="waypoint-list.html" class="appbar-action" style="color: #8E8E93;">취소</a>
+      </div>
+
+      <!-- 배경 지도 (시트 뒤에 보이는 지도) -->
+      <div class="map-area" style="height: 220px;">
+        <div class="map-label">지도 영역 (Naver Map)</div>
+
+        <!-- 기존 waypoint 마커들 -->
+        <svg viewBox="0 0 414 220" preserveAspectRatio="none">
+          <polyline
+            points="70,165 145,125 330,140"
+            fill="none"
+            stroke="#007AFF"
+            stroke-width="3"
+            stroke-opacity="0.5"
+            stroke-linecap="round"
+            stroke-dasharray="6 3"/>
+        </svg>
+        <div class="map-marker" style="left: 70px; top: 133px;">
+          <div class="map-pin start"></div>
+        </div>
+        <div class="map-pin-badge" style="left: 145px; top: 93px;">1</div>
+        <div class="map-marker" style="left: 330px; top: 108px;">
+          <div class="map-pin end"></div>
+        </div>
+
+        <!-- 선택 중인 장소의 임시 마커 (오렌지) -->
+        <div class="map-marker" style="left: 230px; top: 72px;">
+          <div class="map-pin via" style="animation: pulse 1.2s ease-in-out infinite;"></div>
+        </div>
+
+        <style>
+          @keyframes pulse {
+            0%, 100% { box-shadow: 0 2px 8px rgba(255,149,0,0.4); }
+            50% { box-shadow: 0 2px 16px rgba(255,149,0,0.8); }
+          }
+        </style>
+      </div>
+
+      <!-- 하단 시트 -->
+      <div class="bottom-sheet" style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+        <div class="sheet-handle"></div>
+        <div class="sheet-title">등록된 장소에서 선택</div>
+
+        <!-- 검색창 -->
+        <div class="search-bar">
+          <span class="search-icon">&#128269;</span>
+          <input class="search-input" type="text" placeholder="장소 이름 검색..." readonly>
+        </div>
+
+        <!-- 카테고리 필터 -->
+        <div class="filter-chips">
+          <div class="chip active">전체</div>
+          <div class="chip">&#127776; 명소</div>
+          <div class="chip">&#9749; 카페</div>
+          <div class="chip">&#128296; 센터</div>
+          <div class="chip">&#9981; 주유</div>
+          <div class="chip">&#128205; 기타</div>
+        </div>
+
+        <!-- 결과 리스트 -->
+        <div class="place-list" style="flex: 1;">
+
+          <div class="place-item">
+            <div class="place-cat-icon sight">&#127774;</div>
+            <div style="flex: 1; min-width: 0;">
+              <div class="place-name">미사리 조정경기장</div>
+              <div class="place-addr">경기 하남시 미사강변도로 210</div>
+            </div>
+          </div>
+
+          <div class="place-item selected">
+            <div class="place-cat-icon cafe">&#9749;</div>
+            <div style="flex: 1; min-width: 0;">
+              <div class="place-name">용인 바이크 카페</div>
+              <div class="place-addr">경기 용인시 처인구 원삼면 좌찬고개로 42</div>
+            </div>
+            <span class="place-check">&#10003;</span>
+          </div>
+
+          <div class="place-item">
+            <div class="place-cat-icon cafe">&#9749;</div>
+            <div style="flex: 1; min-width: 0;">
+              <div class="place-name">라이더스 커피</div>
+              <div class="place-addr">강원 원주시 지정면 가곡리 58-3</div>
+            </div>
+          </div>
+
+          <div class="place-item">
+            <div class="place-cat-icon center">&#128296;</div>
+            <div style="flex: 1; min-width: 0;">
+              <div class="place-name">춘천 BMW 서비스센터</div>
+              <div class="place-addr">강원 춘천시 근화동 215-1</div>
+            </div>
+          </div>
+
+          <div class="place-item">
+            <div class="place-cat-icon sight">&#127774;</div>
+            <div style="flex: 1; min-width: 0;">
+              <div class="place-name">소양강 스카이워크</div>
+              <div class="place-addr">강원 춘천시 영서로 2663</div>
+            </div>
+          </div>
+
+          <div class="place-item">
+            <div class="place-cat-icon station">&#9981;</div>
+            <div style="flex: 1; min-width: 0;">
+              <div class="place-name">SK에너지 가평IC 주유소</div>
+              <div class="place-addr">경기 가평군 가평읍 경가로 222</div>
+            </div>
+          </div>
+
+          <div class="place-item">
+            <div class="place-cat-icon other">&#128205;</div>
+            <div style="flex: 1; min-width: 0;">
+              <div class="place-name">홍천 휴게소</div>
+              <div class="place-addr">강원 홍천군 홍천읍 신장대로 460</div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- 역할 선택 -->
+        <div class="role-label">이 장소를 어느 지점으로 추가할까요?</div>
+        <div class="role-picker">
+          <button class="role-btn start">&#128205; START</button>
+          <button class="role-btn via selected">&#128309; VIA</button>
+          <button class="role-btn end">&#127937; END</button>
+        </div>
+
+        <!-- 확정 버튼 (선택된 항목이 있으면 활성) -->
+        <button class="sheet-confirm-btn" onclick="window.location.href='waypoint-list.html'">
+          선택한 장소 추가 (1곳)
+        </button>
+
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- 프로토타입 네비게이션 -->
+<div class="proto-nav">
+  <a href="waypoint-list.html">&#8592; 편집 리스트</a>
+  <span class="proto-screen-label">화면 03 — 등록 장소 선택 시트</span>
+  <a href="preview.html">미리보기 &#8594;</a>
+</div>
+
+</body>
+</html>

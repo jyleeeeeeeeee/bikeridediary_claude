@@ -1,0 +1,227 @@
+<!--
+  화면명: 경로 미리보기 — Naver Directions 결과 표시
+  요구사항: D5 (미리보기 버튼 클릭 시 API 호출), D7 (저장은 미리보기 확인 후 활성화)
+  포함 요소: 지도 폴리라인 (SVG 곡선), 총 거리 표시, "저장" 버튼 활성화
+  진입: waypoint-list.html의 "경로 미리보기" 버튼 클릭 (API 호출 중 로딩 표시 후 이 화면)
+-->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BRD 목업 — 경로 미리보기</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* 지도가 상단 55%, 정보 패널 + 액션이 하단 */
+    .map-area {
+      flex: 0 0 55%;
+    }
+
+    /* waypoint 미니 리스트 (미리보기 전용, 스크롤 없음) */
+    .wp-mini-list {
+      padding: 4px 0;
+    }
+
+    .wp-mini-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 16px;
+      position: relative;
+    }
+
+    .wp-mini-item:not(:last-child)::before {
+      content: '';
+      position: absolute;
+      left: 29px;
+      top: 31px;
+      width: 2px;
+      height: calc(100% - 14px);
+      background: var(--color-divider);
+      z-index: 0;
+    }
+
+    .wp-mini-dot {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: #fff;
+      flex-shrink: 0;
+      z-index: 1;
+      position: relative;
+    }
+
+    .wp-mini-dot.start { background: var(--color-wp-start); }
+    .wp-mini-dot.via   { background: var(--color-primary); }
+    .wp-mini-dot.end   { background: var(--color-wp-end); }
+
+    .wp-mini-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--color-text-primary);
+    }
+
+    .wp-mini-sub {
+      font-size: 11px;
+      color: var(--color-text-secondary);
+    }
+  </style>
+</head>
+<body>
+<div class="phone-wrap">
+  <div class="phone">
+
+    <div class="phone-body" style="position: relative;">
+
+      <!-- AppBar -->
+      <div class="appbar">
+        <a href="waypoint-list.html" class="appbar-back">&#8249;</a>
+        <div style="flex:1;">
+          <div class="appbar-title">경로 미리보기</div>
+          <span class="appbar-subtitle">Naver Directions 15 결과</span>
+        </div>
+        <!-- 저장 버튼: 미리보기 완료 상태에서 활성화 -->
+        <a href="save-confirm.html" class="appbar-action" style="color: var(--color-primary); font-weight: 700;">저장</a>
+      </div>
+
+      <!-- 지도 (폴리라인 + 마커 표시) -->
+      <div class="map-area" style="flex: 0 0 340px; position: relative;">
+        <div class="map-label">지도 영역 (Naver Map) — 경로 표시됨</div>
+
+        <!-- 배경 색을 조금 더 도로처럼 -->
+        <div style="position:absolute; inset:0; background: linear-gradient(160deg, #B8CCAA 0%, #C8D8BB 60%, #BACCA8 100%); z-index: 0;"></div>
+
+        <!-- 도로망 시뮬레이션 (가로선) -->
+        <div style="position:absolute; inset:0; z-index:1; pointer-events:none;">
+          <div style="position:absolute; left:0; right:0; top:40%; height:1px; background: rgba(255,255,255,0.3);"></div>
+          <div style="position:absolute; left:0; right:0; top:65%; height:1px; background: rgba(255,255,255,0.25);"></div>
+          <div style="position:absolute; left:25%; top:0; bottom:0; width:1px; background: rgba(255,255,255,0.2);"></div>
+          <div style="position:absolute; left:60%; top:0; bottom:0; width:1px; background: rgba(255,255,255,0.2);"></div>
+        </div>
+
+        <!-- SVG 경로 (곡선, Directions 결과 폴리라인 시뮬레이션) -->
+        <svg viewBox="0 0 414 340" preserveAspectRatio="none" style="position:absolute; inset:0; width:100%; height:100%; z-index:3; pointer-events:none;">
+          <!-- 외곽선 (흰색) — 도로 경계 -->
+          <path
+            d="M 68 270 C 100 250, 130 230, 150 210 C 170 190, 175 165, 185 155 C 200 140, 215 135, 235 125 C 260 112, 285 118, 310 108 C 330 100, 345 110, 355 118"
+            fill="none"
+            stroke="rgba(255,255,255,0.7)"
+            stroke-width="8"
+            stroke-linecap="round"
+            stroke-linejoin="round"/>
+          <!-- 경로 본선 (iOS 블루) -->
+          <path
+            d="M 68 270 C 100 250, 130 230, 150 210 C 170 190, 175 165, 185 155 C 200 140, 215 135, 235 125 C 260 112, 285 118, 310 108 C 330 100, 345 110, 355 118"
+            fill="none"
+            stroke="#007AFF"
+            stroke-width="4.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-opacity="0.9"/>
+        </svg>
+
+        <!-- START 마커 (📍 초록) -->
+        <div class="map-marker" style="left: 68px; top: 240px; z-index: 5;">
+          <div class="map-pin start"></div>
+          <div style="background: rgba(52,199,89,0.9); color: #fff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 3px; white-space: nowrap;">판교IC</div>
+        </div>
+
+        <!-- VIA 마커 1 -->
+        <div class="map-pin-badge" style="left: 185px; top: 128px; z-index: 5;">1</div>
+
+        <!-- VIA 마커 2 -->
+        <div class="map-pin-badge" style="left: 310px; top: 81px; z-index: 5;">2</div>
+
+        <!-- END 마커 (🏁 빨강) -->
+        <div class="map-marker" style="left: 355px; top: 88px; z-index: 5;">
+          <div class="map-pin end"></div>
+          <div style="background: rgba(255,59,48,0.9); color: #fff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-top: 3px; white-space: nowrap;">춘천IC</div>
+        </div>
+
+      </div>
+
+      <!-- 정보 패널 (거리 + waypoint 요약) -->
+      <div class="info-panel">
+        <div style="display: flex; align-items: center; gap: 16px;">
+          <div>
+            <div class="info-label">총 거리</div>
+            <div class="info-row">
+              <span class="info-value">45.2</span>
+              <span class="info-unit">km</span>
+            </div>
+          </div>
+          <div style="width: 1px; height: 36px; background: var(--color-divider);"></div>
+          <div>
+            <div class="info-label">경유지</div>
+            <div class="info-row">
+              <span class="info-value">2</span>
+              <span class="info-unit">곳</span>
+            </div>
+          </div>
+          <div style="margin-left: auto;">
+            <span class="info-chip">경로 계산 완료</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- waypoint 미니 리스트 -->
+      <div style="flex: 1; overflow-y: auto; background: var(--color-card);">
+        <div style="padding: 8px 16px 4px; font-size: 11px; font-weight: 700; color: #8E8E93; letter-spacing: 0.5px; text-transform: uppercase; background: #F2F2F7;">
+          경유 지점
+        </div>
+        <div class="wp-mini-list">
+          <div class="wp-mini-item">
+            <div class="wp-mini-dot start">S</div>
+            <div>
+              <div class="wp-mini-name">&#128205; 판교IC</div>
+              <div class="wp-mini-sub">출발지</div>
+            </div>
+          </div>
+          <div class="wp-mini-item">
+            <div class="wp-mini-dot via">1</div>
+            <div>
+              <div class="wp-mini-name">&#9749; 용인 바이크 카페</div>
+              <div class="wp-mini-sub">경유 · 등록 장소</div>
+            </div>
+          </div>
+          <div class="wp-mini-item">
+            <div class="wp-mini-dot via">2</div>
+            <div>
+              <div class="wp-mini-name">&#128205; 임의 지점</div>
+              <div class="wp-mini-sub">경유 · 좌표 지점</div>
+            </div>
+          </div>
+          <div class="wp-mini-item">
+            <div class="wp-mini-dot end">E</div>
+            <div>
+              <div class="wp-mini-name">&#127937; 춘천IC</div>
+              <div class="wp-mini-sub">목적지</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 하단 액션바 -->
+      <div class="action-bar">
+        <a href="waypoint-list.html" class="btn-secondary">편집으로 돌아가기</a>
+        <a href="save-confirm.html" class="btn-primary">&#128190; 저장하기</a>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- 프로토타입 네비게이션 -->
+<div class="proto-nav">
+  <a href="waypoint-list.html">&#8592; 편집 리스트</a>
+  <span class="proto-screen-label">화면 04 — 경로 미리보기</span>
+  <a href="save-confirm.html">저장 확정 &#8594;</a>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,200 @@
+<!--
+  화면명: Waypoint 편집 리스트 (3~5개 상태)
+  요구사항: D3 (임의 지점+등록 place), D4 (드래그 재배열)
+  포함 요소: 드래그 핸들, 삭제 버튼, 순서 번호, role 배지 (START/VIA/END), place 연동 아이콘
+-->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BRD 목업 — Waypoint 편집 리스트</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .map-area {
+      height: 200px;
+    }
+
+    /* 드래그 중 강조 상태 시뮬레이션 */
+    .wp-edit-item.dragging {
+      background: rgba(0,122,255,0.05);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+      z-index: 10;
+      border-radius: 8px;
+    }
+
+    /* 지도 위 미니 카운터 뱃지 */
+    .map-wp-count {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      background: rgba(0,0,0,0.55);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: var(--r-full);
+      z-index: 5;
+    }
+  </style>
+</head>
+<body>
+<div class="phone-wrap">
+  <div class="phone">
+
+    <div class="phone-body">
+
+      <!-- AppBar -->
+      <div class="appbar">
+        <a href="new-empty.html" class="appbar-back">&#8249;</a>
+        <div style="flex:1;">
+          <div class="appbar-title">코스 편집</div>
+        </div>
+        <!-- 미리보기 버튼: 2개 이상이면 활성 -->
+        <a href="preview.html" class="appbar-action">미리보기</a>
+      </div>
+
+      <!-- 지도 (waypoint 마커 표시) -->
+      <div class="map-area" style="height: 200px;">
+        <div class="map-label">지도 영역 (Naver Map)</div>
+        <div class="map-wp-count">4개 지점</div>
+
+        <!-- SVG 폴리라인 (단순화) -->
+        <svg viewBox="0 0 414 200" preserveAspectRatio="none">
+          <polyline
+            points="70,150 145,110 240,85 330,120"
+            fill="none"
+            stroke="#007AFF"
+            stroke-width="3.5"
+            stroke-opacity="0.7"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-dasharray="6 3"/>
+        </svg>
+
+        <!-- START 마커 -->
+        <div class="map-marker" style="left: 70px; top: 118px;">
+          <div class="map-pin start"></div>
+        </div>
+
+        <!-- VIA 마커 1 -->
+        <div class="map-pin-badge" style="left: 145px; top: 78px;">1</div>
+
+        <!-- VIA 마커 2 -->
+        <div class="map-pin-badge" style="left: 240px; top: 53px;">2</div>
+
+        <!-- END 마커 -->
+        <div class="map-marker" style="left: 330px; top: 88px;">
+          <div class="map-pin end"></div>
+        </div>
+      </div>
+
+      <!-- waypoint 카운터 -->
+      <div class="wp-counter">
+        <span class="wp-count-text">총 <span class="wp-count-num">4</span>개 지점 &nbsp;·&nbsp; VIA 최대 <span class="wp-count-num">11</span>개 더 추가 가능</span>
+      </div>
+
+      <!-- waypoint 편집 리스트 (스크롤 가능) -->
+      <div style="flex: 1; overflow-y: auto; background: var(--color-card);">
+
+        <!-- 리스트 헤더 -->
+        <div style="padding: 8px 16px 4px; font-size: 11px; font-weight: 700; color: #8E8E93; letter-spacing: 0.5px; text-transform: uppercase; background: #F2F2F7;">
+          순서를 드래그하여 변경할 수 있습니다
+        </div>
+
+        <div class="wp-edit-list">
+
+          <!-- 1. START -->
+          <div class="wp-edit-item">
+            <!-- 드래그 핸들 (START는 항상 첫 번째) -->
+            <div class="drag-handle" style="opacity: 0.3; cursor: default;">
+              <span></span><span></span><span></span>
+            </div>
+            <div class="wp-seq start">S</div>
+            <div class="wp-edit-info">
+              <div class="wp-edit-name">&#128205; 판교IC</div>
+              <div class="wp-edit-sub">임의 지점 · 37.3924, 127.1102</div>
+            </div>
+            <span class="wp-role-badge start">START</span>
+            <!-- START는 삭제 불가 -->
+            <div style="width: 30px;"></div>
+          </div>
+
+          <!-- 2. VIA 1 — place 연동 있음 -->
+          <div class="wp-edit-item dragging">
+            <div class="drag-handle" title="드래그하여 순서 변경">
+              <span></span><span></span><span></span>
+            </div>
+            <div class="wp-seq via">1</div>
+            <div class="wp-edit-info">
+              <div class="wp-edit-name">&#127965; 용인 바이크 카페</div>
+              <div class="wp-edit-sub" style="display:flex; align-items:center; gap:4px;">
+                <span style="color: #007AFF; font-size: 11px; font-weight:600;">&#9654; 등록 장소</span>
+                <span>· CAFE</span>
+              </div>
+            </div>
+            <span class="wp-role-badge via">VIA</span>
+            <button class="wp-delete-btn" onclick="alert('삭제됩니다 (목업)')">&#215;</button>
+          </div>
+
+          <!-- 3. VIA 2 — 임의 지점 -->
+          <div class="wp-edit-item">
+            <div class="drag-handle" title="드래그하여 순서 변경">
+              <span></span><span></span><span></span>
+            </div>
+            <div class="wp-seq via">2</div>
+            <div class="wp-edit-info">
+              <div class="wp-edit-name">&#128205; 임의 지점</div>
+              <div class="wp-edit-sub">지도 롱프레스 · 37.2411, 127.5523</div>
+            </div>
+            <span class="wp-role-badge via">VIA</span>
+            <button class="wp-delete-btn" onclick="alert('삭제됩니다 (목업)')">&#215;</button>
+          </div>
+
+          <!-- 4. END -->
+          <div class="wp-edit-item">
+            <div class="drag-handle" style="opacity: 0.3; cursor: default;">
+              <span></span><span></span><span></span>
+            </div>
+            <div class="wp-seq end">E</div>
+            <div class="wp-edit-info">
+              <div class="wp-edit-name">&#127937; 춘천IC</div>
+              <div class="wp-edit-sub">임의 지점 · 37.8580, 127.7152</div>
+            </div>
+            <span class="wp-role-badge end">END</span>
+            <!-- END는 삭제 불가 -->
+            <div style="width: 30px;"></div>
+          </div>
+
+        </div>
+
+        <!-- + 경유지 추가 버튼 -->
+        <div style="padding: 10px 16px;">
+          <button
+            onclick="window.location.href='place-selection-sheet.html'"
+            style="width: 100%; height: 44px; border: 2px dashed #C7C7CC; border-radius: 10px; background: none; color: #8E8E93; font-size: 14px; font-weight: 500; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+            &#43; 경유지 추가 (등록 장소 or 지도 롱프레스)
+          </button>
+        </div>
+
+      </div>
+
+      <!-- 하단 액션바 -->
+      <div class="action-bar">
+        <a href="new-empty.html" class="btn-secondary">초기화</a>
+        <a href="preview.html" class="btn-primary">&#128506; 경로 미리보기</a>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- 프로토타입 네비게이션 -->
+<div class="proto-nav">
+  <a href="new-empty.html">&#8592; 빈 상태</a>
+  <span class="proto-screen-label">화면 02 — Waypoint 편집 리스트</span>
+  <a href="place-selection-sheet.html">장소 선택 시트 &#8594;</a>
+</div>
+
+</body>
+</html>

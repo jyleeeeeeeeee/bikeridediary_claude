@@ -653,6 +653,16 @@ com.bikeridediary
       - `MEMORY.md` (index)
       - `feedback_subagent_review.md` — 서브에이전트 리포트를 팩트 체크 없이 사용자에게 전달 금지. 실제 코드/spec 확인 후 필터링해서 전달
 
+37. 외부 API 호출 로깅 pm 게이트 완결 + 백엔드 가이드 산출 (2026-08-12)
+    - **결정**: D1~D7 전부 pm 추천안 채택 (모든 API 대상, PG 테이블, AOP+`@LogExternalApi` 어노테이션, 마스킹 파라미터 저장, 관리자 API만, 90일 스케줄러 delete, 인덱스 3개)
+    - **plans/external-api-logging.md** 신규 (스코프/결정/필드/담당 분배 명시)
+    - **guides/external-api-logging-schema.md** (dba) — schema.sql 4개 위치 삽입 스니펫, 엔티티 매핑 힌트, 90일 보관 검토
+    - **guides/external-api-logging-backend.md** (backend-dev) — 총 15개 파일(신규 10 + 수정 5), AOP 애스펙트, `REQUIRES_NEW` 트랜잭션 격리, JPQL 동적 조건, `@PreAuthorize("hasRole('ADMIN')")`, 스케줄러
+    - 로깅 대상 클라이언트 5개 실제 확인: NaverMapsClient(3), NaverSearchClient(1), OpinetClient(2), WeatherService(1). KakaoLocalClient는 `_disabled_features`라 보류
+    - `spring-boot-starter-aop` build.gradle 미포함 확인 → 가이드에 추가 안내
+    - **앱 변경 없음** (백엔드 내부 + 어드민 전용)
+    - 사용자 직접 백엔드 구현 예정 (Claude는 가이드만, CLAUDE.md 원칙)
+
 36. 이월 미결 대청소 사이클 (2026-08-12)
     - **탐색 탭 무한 스크롤** (brd_app `c8b9540`):
       - `CourseRepository.fetchAllCoursesPaged({page, size, keyword})` 신규 (`Paged<T>` 반환)
@@ -676,8 +686,10 @@ com.bikeridediary
 
 - **라이딩 코스 2차 스코프 실기기 검증**: Galaxy Z Flip3에서 신규/편집/복사편집/미리보기/네이버 지도 딥링크 2단 다이얼로그 흐름 확인 (사용자 검증 완료 시 삭제)
 - **로딩 오버레이 leak stuck 재발 시 로그 확인**: `[Loading] +N <path>`만 있고 매칭 `-N` 없는 요청 URL이 진짜 leak 소스
-- **주요 미결/후속** (36번 사이클 대청소 후):
-  - **외부 API 호출 로깅 (모든 기능 완성 후 착수 예정, 2026-08-04 결정)**: Naver Directions/Geocoding/Search, Kakao Local, Opinet, OpenWeather 등 외부 API 호출 시 어떤 사용자가·언제·어떤 파라미터로 호출했는지 DB 기록. 목적: 사용량 모니터링(Naver 무료 60,000/월 등 한도 추적), 이상 사용/오남용 탐지, 유저별 차단 근거. `api_call_logs` 테이블 신규 or AOP 기반 인터셉터. **지금 착수 금지 — 후속 사이클에서**
+- **주요 미결/후속** (36번+37번 사이클 후):
+  - **외부 API 호출 로깅 백엔드 구현 반영**: 37번 사이클(2026-08-12)에서 pm 게이트 완결 + 가이드 산출 완료. 사용자 직접 반영 필요:
+    - `guides/external-api-logging-schema.md` — schema.sql 4개 위치 삽입
+    - `guides/external-api-logging-backend.md` — build.gradle AOP starter, 총 15개 파일 (신규 10 + 클라이언트 4곳 어노테이션 부착)
 
 - **스코프 아웃 확정 (다시 이월 금지)**:
   - 주유소 지도 통합 — 2026-08-12 사용자 결정

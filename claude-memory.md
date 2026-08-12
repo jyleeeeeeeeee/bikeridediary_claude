@@ -73,7 +73,7 @@
 - 백엔드: `/auth/login/{provider}` 통합 엔드포인트 + KakaoProvider/GoogleProvider/AppleProvider/NaverProvider(백엔드만) 완성. AuthLoginRequest credential 단일 필드로 통합됨.
 - 네이버는 백엔드만 있고 앱 미연동.
 
-### 오프라인/로컬 우선 아키텍처 (2026-07-28 Phase 3 완성 — 뱅킹 서버 백업만 남음)
+### 오프라인/로컬 우선 아키텍처 (2026-07-28 Phase 3 완성; 뱅킹은 로컬 전용 확정 2026-08-12)
 - 배경: 5종 로그인이 다 있어도 전부 온라인 필수 → 네트워크 없으면 앱 진입도 불가. 게스트조차 서버 게스트라 오프라인에서 무용.
 - 결정 (사용자 확정): 한 기기 전제 / 클라이언트 UUID / last-write-wins / soft delete(deleted_at) / 이미지 로컬 우선 / 바이크·정비·주유 3개 도메인 리팩터링 (뱅킹은 이미 로컬 우선).
 
@@ -103,7 +103,7 @@
   - 앱: SQLite v3→v5, LocalRepository 3종, SyncService 3종, Provider 로컬 우선 재작성, UI 배지
   - 이미지 로컬 우선: `MaintenanceLocalRepository.persistImage`로 앱 문서 폴더 복사, sync 시 다중 URL/파일 자동 diff & 업로드, `AuthenticatedImage`가 로컬 경로/서버 URL 자동 분기
   - 3개 sync 서비스에 `updateBikeMileage(bike)` 추가 (기존 create/update 흐름과 동일)
-- **뱅킹 세션 서버 백업** — 후속 사이클 (현재 로컬 SQLite `brd_banking.db`만, 서버 upload 미구현)
+- **뱅킹 세션 서버 백업** — **스코프 아웃 확정 (2026-08-12)**. 사용자 결정: 로컬 SQLite(`brd_banking.db`) 전용. 기기 초기화 시 손실 감수. Syncable 등록 안 함, `synced_at` 컬럼도 미사용 (준비만 됨). 이후 이월 목록에 다시 넣지 말 것
 
 **Phase 3 핵심 실수/교훈** (2026-07-28 세션 정리 — 다음 도메인 이전 시 참고):
 - **`save()` 반환값 사용 필수**: ID를 클라이언트에서 세팅한 엔티티는 `SimpleJpaRepository.isNew()`가 false → `merge()` 경로 → `@PrePersist`가 merge 내부의 managed 복사본에만 발생. `target = repo.save(toSave)` 안 하면 원본 참조는 detached라 `createdAt`이 null이고, 응답 파싱에서 String 캐스팅 실패. bike/fueling/maintenance sync 3곳 모두 이 패턴으로 수정. **JPA auditing 그대로 사용, `syncTimestamps` 같은 커스텀 메서드 불필요.**

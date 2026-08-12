@@ -653,20 +653,35 @@ com.bikeridediary
       - `MEMORY.md` (index)
       - `feedback_subagent_review.md` — 서브에이전트 리포트를 팩트 체크 없이 사용자에게 전달 금지. 실제 코드/spec 확인 후 필터링해서 전달
 
+36. 이월 미결 대청소 사이클 (2026-08-12)
+    - **탐색 탭 무한 스크롤** (brd_app `c8b9540`):
+      - `CourseRepository.fetchAllCoursesPaged({page, size, keyword})` 신규 (`Paged<T>` 반환)
+      - `ExploreCoursesTab` StatefulWidget + `InfiniteScrollController` 리팩터 (my_place_requests 패턴)
+      - 검색은 서버 `keyword` param submit 시 page 0부터 재조회, 낙관적 즐겨찾기 토글 유지
+      - **orphan cleanup**: 무참조 provider 3개 삭제 (`allCoursesProvider`, `exploreSearchProvider`, `courseSearchProvider`), 관련 `ref.invalidate` 5곳 정리, `fetchAllCourses(non-paged)` 삭제
+    - **stale 이월 목록 대청소 (팩트 체크)** — 32번 사이클부터 이월된 8개 항목을 실제 코드로 검증:
+      - ✅ **`findFavoritedByOthers` isPublic 조건**: 이미 완료. 실제 JPQL에 조건 없음 (사이클 중간에 조용히 fix됨)
+      - ✅ **place 중복 100m Haversine**: 이미 완료. `PlaceService.checkDuplicate()`가 bounding box 1차 + Haversine 2차 정밀화로 완성
+      - ✅ **fueling/maintenance 무한 스크롤**: 대상 아님 확정. Phase 3 로컬 우선(SQLite 전체 로드)이라 서버 페이징 개념 자체 없음
+      - ✅ **place 검색 무한 스크롤**: 대상 아님 확정. 지도 마커용 전체 로드 + in-memory 검색이 UX 요구사항
+      - ✅ **뱅킹 세션 서버 백업**: 스코프 아웃 확정 (2026-08-12). 사용자 결정으로 로컬 전용
+      - ✅ **카카오맵 딥링크**: 사용자 결정으로 pass (2026-08-12)
+      - ✅ **FuelingServiceTest 복구**: 사용자 결정으로 pass (2026-08-12)
+      - ✅ **주유소 지도 통합**: 사용자 결정으로 pass (2026-08-12). 필요 시 별도 사이클에서 pm 게이트로 스코핑
+    - **서브에이전트 리뷰 규칙 정정** (`code-reviewer.md`, `claude-memory.md`):
+      - 이전 사이클(35번)에서 code-reviewer의 "Icons.thumb_up" 지적을 Claude가 "오지적"으로 반박 → 실제 git baseline에 정말 thumb_up 있었음. 반박도 팩트 체크 필수라는 규칙 추가
+      - `.claude/agents/code-reviewer.md`에서 잘못된 "오지적 예시" 제거하고 "반박 시에도 팩트 체크" 문구로 교체
+
 ### 다음 단계
 
-- **라이딩 코스 2차 스코프 실기기 검증**: Galaxy Z Flip3에서 신규/편집/복사편집/미리보기/네이버 지도 딥링크 2단 다이얼로그 흐름 확인
-- **`FuelingServiceTest` 복구 반영**: 가이드는 `guides/fueling-service-test.md`에 정리됨. 사용자가 직접 반영
+- **라이딩 코스 2차 스코프 실기기 검증**: Galaxy Z Flip3에서 신규/편집/복사편집/미리보기/네이버 지도 딥링크 2단 다이얼로그 흐름 확인 (사용자 검증 완료 시 삭제)
 - **로딩 오버레이 leak stuck 재발 시 로그 확인**: `[Loading] +N <path>`만 있고 매칭 `-N` 없는 요청 URL이 진짜 leak 소스
-- **주요 미결/후속** (이전 사이클에서 이월):
-  - `findFavoritedByOthers` JPQL의 `isPublic = TRUE` 조건 제거 (즐겨찾기 후 비공개 전환 시 MY탭 누락)
-  - place 중복 체크 좌표 근접(100m Haversine) 조합 도입 여부
-  - 주유소 지도 통합 (place UI 주유 카테고리를 기존 station API에 연결 or place로 흡수)
-  - 카카오맵/네이버 지도 딥링크 버튼 (url_launcher)
-  - 뱅킹 세션 서버 백업 (Phase 3 잔여)
-  - 무한 스크롤 UI 확장 (fueling/maintenance/course/POI, 첫 페이지 20건만 표시 중)
+- **주요 미결/후속** (36번 사이클 대청소 후):
   - 실기기 오프라인 게스트 시나리오 검증 (비행기 모드 → 가입없이 시작하기 → 뱅킹)
   - **외부 API 호출 로깅 (모든 기능 완성 후 착수 예정, 2026-08-04 결정)**: Naver Directions/Geocoding/Search, Kakao Local, Opinet, OpenWeather 등 외부 API 호출 시 어떤 사용자가·언제·어떤 파라미터로 호출했는지 DB 기록. 목적: 사용량 모니터링(Naver 무료 60,000/월 등 한도 추적), 이상 사용/오남용 탐지, 유저별 차단 근거. `api_call_logs` 테이블 신규 or AOP 기반 인터셉터. **지금 착수 금지 — 후속 사이클에서**
+  - 주유소 지도 통합 (2026-08-12 사용자 결정으로 이번 세션 pass. 재개 시 pm 게이트로 정식 스코핑 필요)
+  - `FuelingServiceTest` 복구 (2026-08-12 pass. `guides/fueling-service-test.md`에 가이드 있음)
+  - 카카오맵 딥링크 (2026-08-12 pass. 필요 시 재개)
 
 ---
 

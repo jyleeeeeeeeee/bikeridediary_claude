@@ -32,7 +32,7 @@ DB 스키마: `guides/external-api-logging-schema.md`
 | # | 경로 | 신규/수정 |
 |---|------|----------|
 | 1 | `build.gradle` | 수정 (AOP starter) |
-| 2 | `global/logging/ApiName.java` | 신규 |
+| 2 | `global/logging/ApiNames.java` | 신규 — String 상수 클래스 (enum 아님) |
 | 3 | `global/logging/LogExternalApi.java` | 신규 |
 | 4 | `global/logging/SensitiveParamsFilter.java` | 신규 |
 | 5 | `global/logging/ExternalApiLoggingAspect.java` | 신규 (핵심) |
@@ -47,6 +47,15 @@ DB 스키마: `guides/external-api-logging-schema.md`
 | 14 | `infra/opinet/OpinetClient.java` | 수정 (어노테이션 2개) |
 | 15 | `domain/weather/service/WeatherService.java` | 수정 (어노테이션 1개) |
 
+## ApiName은 enum 대신 String 상수 (2026-08-12 결정)
+
+**이유**:
+- 새 외부 API 추가 시 enum 값 추가·재컴파일 불필요 (어노테이션에 임의 String 넣으면 됨)
+- DTO 직렬화/JPA 매핑 단순 (Enumerated 처리 불필요)
+- 어드민 API 필터 파라미터도 String으로 자연스레 처리
+
+**컴파일 타임 안전 유지**: 자주 쓰는 값은 `ApiNames` 클래스의 `public static final String` 상수로 노출. 오타 방지 + IDE 자동완성. 상수에 없는 값도 어노테이션에 String literal로 삽입 가능.
+
 ## 코드 스니펫
 
 ### 1. build.gradle
@@ -58,25 +67,30 @@ implementation 'org.springframework.boot:spring-boot-starter-aop'
 
 `@EnableAspectJAutoProxy`는 Spring Boot AOP starter 있으면 자동. 별도 설정 불필요.
 
-### 2. ApiName.java
+### 2. ApiNames.java (String 상수 클래스)
 
-`src/main/java/com/bikeridediary/global/logging/ApiName.java`
+`src/main/java/com/bikeridediary/global/logging/ApiNames.java`
 
 ```java
 package com.bikeridediary.global.logging;
 
 /**
- * 외부 API 식별자 enum.
+ * 외부 API 식별자 String 상수.
+ * enum이 아닌 이유: 새 API 추가 시 재컴파일 없이 어노테이션에 String literal로 삽입 가능.
  * api_call_logs.api_name 컬럼 저장 값이므로 한 번 정한 이름 변경 금지 (기존 로그와 불일치).
+ * 어노테이션에 상수를 참조하지 않고 String literal("NAVER_DIRECTIONS")을 직접 써도 무방.
  */
-public enum ApiName {
-    NAVER_GEOCODING,
-    NAVER_REVERSE_GEOCODING,
-    NAVER_DIRECTIONS,
-    NAVER_SEARCH,
-    KAKAO_LOCAL,
-    OPINET,
-    OPENWEATHER
+public final class ApiNames {
+
+    private ApiNames() {}
+
+    public static final String NAVER_GEOCODING = "NAVER_GEOCODING";
+    public static final String NAVER_REVERSE_GEOCODING = "NAVER_REVERSE_GEOCODING";
+    public static final String NAVER_DIRECTIONS = "NAVER_DIRECTIONS";
+    public static final String NAVER_SEARCH = "NAVER_SEARCH";
+    public static final String KAKAO_LOCAL = "KAKAO_LOCAL";
+    public static final String OPINET = "OPINET";
+    public static final String OPENWEATHER = "OPENWEATHER";
 }
 ```
 
@@ -96,13 +110,15 @@ import java.lang.annotation.Target;
  * 외부 API 호출 로깅 어노테이션.
  * 이 어노테이션이 붙은 메서드는 ExternalApiLoggingAspect가 인터셉트하여
  * api_call_logs 테이블에 호출 이력을 기록한다.
+ *
+ * apiName은 String — ApiNames 상수 사용 권장 (오타 방지), 신규 API는 literal도 허용.
  */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface LogExternalApi {
 
-    /** 호출하는 외부 API 식별자 */
-    ApiName apiName();
+    /** 호출하는 외부 API 식별자 (예: ApiNames.NAVER_DIRECTIONS 또는 "NAVER_DIRECTIONS") */
+    String apiName();
 
     /**
      * 요청 파라미터 저장 여부.
@@ -297,7 +313,7 @@ public class ExternalApiLoggingAspect {
 ```java
 package com.bikeridediary.domain.apicalllog.entity;
 
-import com.bikeridediary.global.logging.ApiName;
+import com.bikeridediary.global.logging.ApiNames;
 import io.hypersistence.utils.hibernate.type.json.JsonType;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -337,10 +353,9 @@ public class ApiCallLogEntity {
     @JdbcTypeCode(SqlTypes.UUID)
     private UUID userId;
 
-    // 외부 API 식별자
-    @Enumerated(EnumType.STRING)
+    // 외부 API 식별자 (String — enum 아님. ApiNames 상수 참고)
     @Column(name = "api_name", nullable = false, length = 50)
-    private ApiName apiName;
+    private String apiName;
 
     // 실제 호출 URL path (쿼리스트링 제외. URL 파악 안 되면 클래스명.메서드명)
     @Column(name = "endpoint", nullable = false, length = 200)
@@ -373,7 +388,7 @@ public class ApiCallLogEntity {
 
     public static ApiCallLogEntity create(
             UUID userId,
-            ApiName apiName,
+            String apiName,
             String endpoint,
             String httpMethod,
             Integer statusCode,
@@ -412,7 +427,7 @@ public class ApiCallLogEntity {
 package com.bikeridediary.domain.apicalllog.repository;
 
 import com.bikeridediary.domain.apicalllog.entity.ApiCallLogEntity;
-import com.bikeridediary.global.logging.ApiName;
+import com.bikeridediary.global.logging.ApiNames;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -434,7 +449,7 @@ public interface ApiCallLogRepository extends JpaRepository<ApiCallLogEntity, UU
             ORDER BY a.calledAt DESC
             """)
     Page<ApiCallLogEntity> search(
-            @Param("apiName") ApiName apiName,
+            @Param("apiName") String apiName,
             @Param("userId") UUID userId,
             @Param("from") LocalDateTime from,
             @Param("to") LocalDateTime to,
@@ -453,7 +468,7 @@ public interface ApiCallLogRepository extends JpaRepository<ApiCallLogEntity, UU
 package com.bikeridediary.domain.apicalllog.dto;
 
 import com.bikeridediary.domain.apicalllog.entity.ApiCallLogEntity;
-import com.bikeridediary.global.logging.ApiName;
+import com.bikeridediary.global.logging.ApiNames;
 
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -463,7 +478,7 @@ public record ApiCallLogResponse(
         Long no,
         UUID id,
         UUID userId,
-        ApiName apiName,
+        String apiName,
         String endpoint,
         String httpMethod,
         Integer statusCode,
@@ -492,7 +507,7 @@ package com.bikeridediary.domain.apicalllog.service;
 import com.bikeridediary.domain.apicalllog.dto.ApiCallLogResponse;
 import com.bikeridediary.domain.apicalllog.entity.ApiCallLogEntity;
 import com.bikeridediary.domain.apicalllog.repository.ApiCallLogRepository;
-import com.bikeridediary.global.logging.ApiName;
+import com.bikeridediary.global.logging.ApiNames;
 import com.bikeridediary.global.response.PageResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -520,7 +535,7 @@ public class ApiCallLogService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void saveLog(
             UUID userId,
-            ApiName apiName,
+            String apiName,
             String endpoint,
             String httpMethod,
             Integer statusCode,
@@ -542,7 +557,7 @@ public class ApiCallLogService {
 
     @Transactional(readOnly = true)
     public PageResponse<ApiCallLogResponse> search(
-            ApiName apiName,
+            String apiName,
             UUID userId,
             LocalDateTime from,
             LocalDateTime to,
@@ -563,7 +578,7 @@ package com.bikeridediary.domain.apicalllog.controller;
 
 import com.bikeridediary.domain.apicalllog.dto.ApiCallLogResponse;
 import com.bikeridediary.domain.apicalllog.service.ApiCallLogService;
-import com.bikeridediary.global.logging.ApiName;
+import com.bikeridediary.global.logging.ApiNames;
 import com.bikeridediary.global.response.ApiResponse;
 import com.bikeridediary.global.response.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -596,7 +611,7 @@ public class AdminApiCallLogController {
     @Operation(summary = "외부 API 호출 로그 목록 (필터, 페이징)")
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<ApiCallLogResponse>>> list(
-            @Nullable @RequestParam(required = false) ApiName apiName,
+            @Nullable @RequestParam(required = false) String apiName,
             @Nullable @RequestParam(required = false) UUID userId,
             @Nullable @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
@@ -656,7 +671,7 @@ public class ApiCallLogRetentionScheduler {
 
 import 추가:
 ```java
-import com.bikeridediary.global.logging.ApiName;
+import com.bikeridediary.global.logging.ApiNames;
 import com.bikeridediary.global.logging.LogExternalApi;
 ```
 

@@ -114,9 +114,9 @@ public class ApiCallLogEntity {
     @JdbcTypeCode(SqlTypes.UUID)
     private UUID userId;
 
-    @Enumerated(EnumType.STRING)
+    // ApiNames 클래스의 String 상수 사용 (enum 아님 — 신규 API 추가 시 재컴파일 불필요)
     @Column(name = "api_name", nullable = false, length = 50)
-    private ApiName apiName;
+    private String apiName;
 
     // JSONB — hypersistence-utils (이미 build.gradle 등록됨)
     @Type(JsonType.class)

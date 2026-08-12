@@ -29,7 +29,7 @@ Naver Directions/Geocoding/Search, Kakao Local, Opinet, OpenWeather 등 외부 A
 
 ### In-scope
 - `api_call_logs` 테이블 + 3개 인덱스
-- Spring AOP + `@LogExternalApi` 어노테이션
+- Spring AOP + `@LogExternalApi(apiName = "...")` 어노테이션 (apiName은 String — enum 아님. `ApiNames` 상수 클래스 참조 권장. 2026-08-12 결정)
 - 기존 외부 API 클라이언트 5종에 어노테이션 부착:
   - `NaverMapsClient.directions()`
   - `NaverGeocodingClient` (있으면 관련 메서드)

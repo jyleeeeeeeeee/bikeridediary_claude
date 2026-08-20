@@ -126,3 +126,44 @@ model: sonnet
 - 스키마 관련은 dba에게 위임 안내
 - Flutter 측 스펙 필요하면 flutter-dev에게 넘길 API 문서 초안 첨부
 - 완료된 작업 문서 반영은 pm에게 위임
+
+## 가이드 제출 전 자체 크로스 체크 (필수)
+
+**빠뜨리면 사용자가 반영 후 부팅 실패나 컴파일 에러로 이어짐. 리포트 내기 직전 아래를 반드시 실행.**
+
+### 1. Entity ↔ DDL 컬럼 대조
+- `BaseEntity` 상속하면 반드시 `created_at`, `updated_at`, `deleted_at` **3개 모두** DDL에 존재
+- `@EntityListeners(AuditingEntityListener.class)` 붙였는지
+- 엔티티의 `@Column(name=...)` 하나하나 DDL 컬럼과 대조 (누락/오타 없나)
+- `@ManyToOne @JoinColumn(name="xxx_id")` → DDL의 FK 컬럼 존재 확인
+- `@Table indexes` 명시한 인덱스 이름 → DDL `CREATE INDEX` 이름과 일치
+- CHECK 제약이 enum 값 전부 커버하는지 (enum 새로 추가하면 CHECK도 갱신 필요)
+
+### 2. 코드 블록 ↔ 섹션 서두 요약 대조
+- 각 섹션 서두에 "주요 변경: X, Y, Z" 같은 요약이 있으면 아래 코드가 실제로 X/Y/Z를 다 하는지
+- "불필요 import 제거만"이라 써놓고 어노테이션 추가하면 안 됨 — 요약을 정확히 갱신
+- 반대로, 코드에는 있는데 요약에는 빠진 변경 사항 없는지
+
+### 3. Import 목록 ↔ 실제 사용 대조
+- 코드 블록의 `import` 목록에서 아래 본문에 실제로 안 쓰이는 클래스 없는지
+- `@Size` import 넣고 `@Length` 쓰는 등의 복붙 실수 방지
+- static import와 일반 import 중복 없나
+
+### 4. 개수/열거 언급 ↔ 실제 나열 대조
+- "시나리오 3종 확인" 같은 문구 있으면 아래 열거된 항목 수와 일치
+- "파일 5개 생성" 같은 표현도 실제 목록과 대조
+- 체크리스트 항목이 각 섹션의 실제 변경 사항을 빠짐없이 커버하는지
+
+### 5. 서비스 반환값 사용 여부
+- `saved = repository.save(entity)` 반환값을 실제로 쓰는지 확인
+- 안 쓰면 "save() 반환값 사용 원칙 준수" 같은 문구 넣지 말 것 (Phase 3 sync 엔티티 관행을 관성적으로 복붙 금지)
+- sync 엔티티(BikeSync 등) 아니면 `@GeneratedValue` + `@PrePersist` 조합만으로 충분하다고 명시
+
+### 6. 프로젝트 관례 재확인 (관성적 규칙 적용 금지)
+- `@GeneratedValue` 제거는 **sync 지원 엔티티에만** 해당 (UserEntity는 유지). 서버 전용 엔티티는 유지가 자연스러움
+- Repository 메서드 위치는 반환 타입 기준: place 반환이면 PlaceRepository, wish 반환이면 PlaceWishRepository (CourseRepository.findFavoritedByOthers 패턴)
+- 최신 프로젝트 상황을 Grep으로 재확인 후 결론 (이전 사이클의 관례가 여전한지)
+
+### 체크 결과 리포트에 명시
+가이드 마지막에 "**자체 크로스 체크 통과**: Entity ↔ DDL / 요약 ↔ 코드 / import ↔ 사용 / 개수 언급 / 반환값 사용 여부 확인 완료" 문구 붙일 것.
+누락 항목 있으면 정직하게 "미확인" 표시.
